@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Mellifera Technology: monitoreo inteligente, gestión y trazabilidad para apiarios conectados.">
+  <meta name="csrf-token" content="">
+  <title>Mellifera Technology — La inteligencia del apiario</title>
+  <link rel="icon" href="assets/img/logo-light.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body class="marketing-page">
+  <div class="page-noise" aria-hidden="true"></div>
+  <header class="marketing-header" id="marketingHeader">
+    <a class="brand" href="#inicio" aria-label="Mellifera Technology">
+      <span class="brand-mark"><i></i><i></i><i></i></span>
+      <span>MELLIFERA</span>
+    </a>
+    <button class="mobile-menu" id="mobileMenu" type="button" aria-label="Abrir menú">☰</button>
+    <nav class="marketing-nav" id="marketingNav">
+      <a href="#solucion">Solución</a>
+      <a href="#plataforma">Plataforma</a>
+      <a href="#arquitectura">Arquitectura</a>
+      <a href="#seguridad">Seguridad</a>
+      <a href="#contacto">Contacto</a>
+    </nav>
+    <div class="header-actions">
+      <a class="button button-primary button-small" id="headerPanelButton" href="dashboard.html" hidden>Abrir panel</a>
+      <div class="header-actions" id="headerGuestActions">
+        <a class="button button-ghost button-small" href="login.html">Ingresar</a>
+        <a class="button button-primary button-small" href="register.html">Crear cuenta</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-copy reveal">
+        <span class="eyebrow"><i></i> Apicultura conectada, simple y precisa</span>
+        <h1>Entender el apiario<br><span>antes de abrir la colmena.</span></h1>
+        <p>Mellifera reúne telemetría, alertas y gestión apícola en un único sistema. Menos viajes innecesarios, mejor trazabilidad y decisiones respaldadas por datos reales.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" id="heroPrimaryAction" href="register.html">Comenzar ahora</a>
+          <a class="button button-ghost" href="#plataforma">Ver cómo funciona</a>
+        </div>
+        <div class="hero-trust">
+          <span><b>✓</b> Datos propios</span>
+          <span><b>✓</b> Conexión celular</span>
+          <span><b>✓</b> Hardware modular</span>
+        </div>
+      </div>
+
+      <div class="hero-stage reveal" id="heroStage">
+        <div class="honey-ring ring-a"></div>
+        <div class="honey-ring ring-b"></div>
+        <div class="dashboard-preview glass">
+          <div class="preview-top">
+            <span class="preview-brand">MELLIFERA</span>
+            <span class="live"><i></i> Sistema activo</span>
+          </div>
+          <div class="preview-title"><small>Apiario General Paz</small><strong>Estado general</strong></div>
+          <div class="preview-kpis">
+            <article><span>34,6°</span><small>Temperatura interna</small><i class="ok">Estable</i></article>
+            <article><span>62%</span><small>Humedad interna</small><i class="ok">Normal</i></article>
+            <article><span>86%</span><small>Energía</small><i>Cargando</i></article>
+          </div>
+          <div class="preview-chart">
+            <svg viewBox="0 0 600 220" preserveAspectRatio="none" aria-hidden="true">
+              <defs><linearGradient id="fillHoney" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3b61f" stop-opacity=".55"/><stop offset="1" stop-color="#f3b61f" stop-opacity="0"/></linearGradient></defs>
+              <path class="chart-grid" d="M0 35H600M0 90H600M0 145H600M0 200H600"/>
+              <path fill="url(#fillHoney)" d="M0 170 C50 155 82 112 135 126 S215 96 270 104 S354 45 418 74 S520 39 600 58 V220H0Z"/>
+              <path class="chart-stroke" d="M0 170 C50 155 82 112 135 126 S215 96 270 104 S354 45 418 74 S520 39 600 58"/>
+            </svg>
+          </div>
+          <div class="preview-alert"><span>!</span><div><b>Atención prioritaria</b><small>Variación térmica · Colmena 08</small></div><button type="button">Revisar</button></div>
+        </div>
+        <div class="float-chip chip-one"><b>12</b><span>colmenas<br>monitoreadas</span></div>
+        <div class="float-chip chip-two"><i></i><span>Última lectura<br><b>hace 2 min</b></span></div>
+      </div>
+    </section>
+
+    <section class="metric-strip">
+      <article><b>24/7</b><span>Monitoreo continuo</span></article>
+      <article><b>1 panel</b><span>Todo el apiario</span></article>
+      <article><b>HTTPS</b><span>Telemetría protegida</span></article>
+      <article><b>Local</b><span>Base bajo su control</span></article>
+    </section>
+
+    <section class="marketing-section" id="solucion">
+      <header class="section-heading reveal">
+        <span class="eyebrow"><i></i> Una plataforma completa</span>
+        <h2>La información técnica y el trabajo diario, en el mismo lugar.</h2>
+        <p>El sistema no se limita a mostrar sensores: organiza el apiario, relaciona eventos y ayuda a priorizar qué colmena necesita atención.</p>
+      </header>
+      <div class="bento-grid">
+        <article class="bento bento-wide reveal"><span class="bento-icon">⌁</span><h3>Telemetría en contexto</h3><p>Temperatura, humedad, peso, gases, sonido, vibración, inclinación, flujo de abejas y energía. Por colmena, período y apiario.</p><div class="sensor-cloud"><span>Temperatura</span><span>Humedad</span><span>Peso</span><span>CO₂</span><span>Sonido</span><span>Movimiento</span><span>Batería</span></div></article>
+        <article class="bento reveal"><span class="bento-icon">!</span><h3>Alertas útiles</h3><p>Eventos ordenados por criticidad, con la colmena y la variable que originó el aviso.</p></article>
+        <article class="bento reveal"><span class="bento-icon">✦</span><h3>Sanidad</h3><p>Tratamientos, retiro, eficacia, varroa e historial sanitario.</p></article>
+        <article class="bento reveal"><span class="bento-icon">↗</span><h3>Producción</h3><p>Kilos por colmena, apiario, mes, año y campaña.</p></article>
+        <article class="bento reveal"><span class="bento-icon">◌</span><h3>Reinas</h3><p>Introducción, origen, color, estado e impacto productivo.</p></article>
+        <article class="bento bento-wide reveal"><span class="bento-icon">▦</span><h3>Gestión cotidiana</h3><p>Calendario, anotaciones, clima, tareas y exportaciones. Cada registro queda relacionado con la colmena correcta.</p><div class="task-stack"><span><i class="done"></i> Revisión · Colmena 03</span><span><i></i> Retiro de tratamiento · Colmena 08</span><span><i></i> Control de alimento · Apiario Norte</span></div></article>
+      </div>
+    </section>
+
+    <section class="marketing-section split-showcase" id="plataforma">
+      <div class="showcase-copy reveal">
+        <span class="eyebrow"><i></i> Claridad antes que complejidad</span>
+        <h2>Un panel ordenado para mirar primero lo que importa.</h2>
+        <p>La pantalla inicial resume conexión, alertas, última telemetría, producción y próximos eventos. Después permite profundizar por apiario o colmena.</p>
+        <ul class="feature-list">
+          <li>Resumen operativo en tiempo real.</li>
+          <li>Detalle individual por colmena.</li>
+          <li>Históricos y comparaciones.</li>
+          <li>Gestión sanitaria y productiva.</li>
+          <li>Datos aislados por usuario.</li>
+        </ul>
+      </div>
+      <div class="browser-mock reveal">
+        <div class="browser-bar"><i></i><i></i><i></i><span>mellifera-technology.com/dashboard</span></div>
+        <div class="browser-body">
+          <aside><b>M</b><span></span><span></span><span></span><span></span><span></span></aside>
+          <div class="browser-content"><div class="mock-head"><div><small>Buenos días</small><b>Resumen del apiario</b></div><i>Actualizado</i></div><div class="mock-cards"><span></span><span></span><span></span><span></span></div><div class="mock-row"><div class="mock-chart"><svg viewBox="0 0 500 150" preserveAspectRatio="none"><path class="chart-grid" d="M0 38H500M0 76H500M0 114H500"/><path class="chart-stroke" d="M0 116C65 98 92 72 148 82S234 33 300 61S398 27 500 45"/></svg></div><div class="mock-list"><i></i><i></i><i></i><i></i></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketing-section architecture" id="arquitectura">
+      <header class="section-heading reveal">
+        <span class="eyebrow"><i></i> Arquitectura real</span>
+        <h2>La web es pública. La base de datos no.</h2>
+        <p>Cloudflare Tunnel conecta el dominio con Laragon mediante una conexión saliente. MySQL permanece en la computadora local y nunca se expone a Internet.</p>
+      </header>
+      <div class="flow reveal">
+        <article><b>01</b><span>◉</span><h3>Nodo madre</h3><p>Publica telemetría por HTTPS con credenciales propias.</p></article><i>→</i>
+        <article><b>02</b><span>☁</span><h3>Cloudflare</h3><p>Protege el dominio y transporta las solicitudes.</p></article><i>→</i>
+        <article><b>03</b><span>⌂</span><h3>Laragon + PHP</h3><p>Autentica, valida y procesa cada paquete.</p></article><i>→</i>
+        <article><b>04</b><span>▤</span><h3>MySQL local</h3><p>Guarda los datos aislados por propietario.</p></article>
+      </div>
+      <div class="architecture-note reveal"><b>Identidad invisible para el usuario.</b><span>Cada cuenta recibe un UUID interno único. Cada madre tiene además su propio token. Ninguno se muestra en el panel del productor.</span></div>
+    </section>
+
+    <section class="marketing-section security" id="seguridad">
+      <div class="security-card reveal"><span class="security-orbit"></span><div class="shield">⬢</div><div><span class="eyebrow"><i></i> Seguridad por diseño</span><h2>Cada usuario consulta únicamente sus propios datos.</h2><p>La sesión identifica al propietario y todas las consultas incluyen su ID interno. Las madres se validan con código de cuenta, identificador de dispositivo y token secreto individual.</p><div class="security-points"><span>Contraseñas cifradas</span><span>Sesiones seguras</span><span>Protección CSRF</span><span>API autenticada</span><span>MySQL privado</span><span>Auditoría</span></div></div></div>
+    </section>
+
+    <section class="marketing-section contact-section" id="contacto">
+      <div class="contact-copy reveal"><span class="eyebrow"><i></i> Contacto</span><h2>Conectemos el próximo apiario.</h2><p>Escriba para solicitar una demostración, evaluar una instalación o conocer el sistema de hardware y plataforma.</p><a href="mailto:contacto@mellifera-technology.com">contacto@mellifera-technology.com</a></div>
+      <form class="contact-form reveal" id="contactForm">
+        <label>Nombre<input name="name" type="text" required maxlength="120" placeholder="Nombre y apellido"></label>
+        <label>Email<input name="email" type="email" required maxlength="190" placeholder="nombre@dominio.com"></label>
+        <label>Mensaje<textarea name="message" required minlength="10" rows="6" placeholder="Cuéntenos sobre su apiario"></textarea></label>
+        <button class="button button-primary" type="submit">Enviar consulta</button>
+        <p id="contactStatus" class="form-status" role="status"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="marketing-footer"><a class="brand" href="#inicio"><span class="brand-mark"><i></i><i></i><i></i></span><span>MELLIFERA</span></a><p>© <span id="year"></span> Mellifera Technology. Apicultura inteligente.</p><div><a href="login.html">Ingresar</a><a href="register.html">Crear cuenta</a></div></footer>
+  <script src="config.js" defer></script>
+  <script src="assets/js/site.js" defer></script>
+  <script src="pwa.js" defer></script>
+</body>
+</html>

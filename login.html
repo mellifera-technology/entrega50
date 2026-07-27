@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="">
+  <title>Ingresar — Mellifera Technology</title>
+  <link rel="icon" href="assets/img/logo-light.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body class="auth-page">
+  <a class="auth-back" href="index.html">← Volver al sitio</a>
+  <main class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-glow"></div>
+      <a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>MELLIFERA</span></a>
+      <div class="auth-message"><span class="eyebrow"><i></i> Plataforma apícola</span><h1>Todo el apiario,<br><span>en una sola mirada.</span></h1><p>Acceda a las mediciones, alertas, sanidad, producción y trazabilidad de sus colmenas.</p></div>
+      <div class="auth-status-card glass"><span class="live"><i></i> Infraestructura activa</span><div><b>Conexión protegida</b><small>Cloudflare Tunnel + servidor local</small></div></div>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card">
+        <span class="eyebrow"><i></i> Bienvenido</span>
+        <h2>Iniciar sesión</h2>
+        <p>Ingrese con el email y la contraseña de su cuenta.</p>
+        <form id="authForm" data-mode="login">
+          <label>Email<input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@dominio.com"></label>
+          <label>Contraseña<div class="password-field"><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Su contraseña"><button class="password-toggle" type="button" data-target="password" aria-label="Mostrar contraseña">Ver</button></div></label>
+          <button class="button button-primary button-full" type="submit">Ingresar al panel</button>
+          <p class="form-status" id="authStatus" role="alert"></p>
+        </form>
+        <div class="auth-divider"><span>¿Todavía no tiene cuenta?</span></div>
+        <a class="button button-ghost button-full" href="register.html">Crear cuenta</a>
+      </div>
+    </section>
+  </main>
+  <script src="config.js" defer></script>
+  <script src="assets/js/auth.js" defer></script>
+  <script src="pwa.js" defer></script>
+</body>
+</html>

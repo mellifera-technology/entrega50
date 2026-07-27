@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="">
+  <title>Panel — Mellifera Technology</title>
+  <link rel="icon" href="assets/img/logo-light.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script src="config.js" defer></script>
+  <script src="assets/js/dashboard.js" defer></script>
+  <script src="pwa.js" defer></script>
+</head>
+<body class="dashboard-page">
+  <div class="dash-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand"><a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>MELLIFERA</span></a><button id="closeSidebar" type="button" aria-label="Cerrar menú">×</button></div>
+      <nav class="side-nav" id="sideNav">
+        <button class="active" data-view="overview"><span>⌂</span>Resumen</button>
+        <button data-view="apiaries"><span>⌾</span>Apiarios</button>
+        <button data-view="hives"><span>⬡</span>Colmenas</button>
+        <button data-view="readings"><span>⌁</span>Mediciones</button>
+        <button data-view="alerts"><span>!</span>Alertas</button>
+        <button data-view="production"><span>↗</span>Producción</button>
+        <button data-view="health"><span>✦</span>Sanidad</button>
+        <button data-view="queens"><span>◌</span>Reinas</button>
+        <button data-view="calendar"><span>▦</span>Calendario</button>
+        <button data-view="notes"><span>✎</span>Anotaciones</button>
+        <button data-view="devices"><span>◉</span>Dispositivos</button>
+      </nav>
+      <div class="sidebar-foot"><div class="user-avatar" id="userAvatar">M</div><div><b id="sidebarUserName">Cargando…</b><small id="sidebarUserEmail">—</small></div><button id="logoutButton" type="button" title="Cerrar sesión">↪</button></div>
+    </aside>
+
+    <div class="dash-main">
+      <header class="dash-topbar">
+        <button class="icon-button mobile-only" id="openSidebar" type="button" aria-label="Abrir menú">☰</button>
+        <div class="topbar-title"><small id="viewEyebrow">Panel general</small><h1 id="viewTitle">Resumen del apiario</h1></div>
+        <div class="topbar-actions"><span class="connection-chip" id="connectionChip"><i></i><span>Conectado</span></span><button class="icon-button" id="refreshButton" type="button" title="Actualizar">↻</button></div>
+      </header>
+
+      <main class="dash-content">
+        <section class="dash-view active" data-view-panel="overview">
+          <div class="welcome-row"><div><p id="todayLabel"></p><h2>Buenos días, <span id="welcomeName">—</span>.</h2><p>Este es el estado actual de sus apiarios.</p></div><button class="button button-primary" data-open-dialog="hiveDialog">+ Nueva colmena</button></div>
+          <div class="summary-grid" id="summaryGrid">
+            <article class="summary-card"><span class="summary-icon honey">⬡</span><div><small>Colmenas activas</small><b id="sumHives">—</b><em id="sumApiaries">— apiarios</em></div></article>
+            <article class="summary-card"><span class="summary-icon green">◉</span><div><small>Dispositivos en línea</small><b id="sumOnline">—</b><em id="sumDevices">— registrados</em></div></article>
+            <article class="summary-card"><span class="summary-icon red">!</span><div><small>Alertas abiertas</small><b id="sumAlerts">—</b><em>requieren revisión</em></div></article>
+            <article class="summary-card"><span class="summary-icon blue">↗</span><div><small>Producción del mes</small><b><span id="sumProduction">—</span> kg</b><em>acumulado</em></div></article>
+          </div>
+
+          <div class="overview-grid">
+            <article class="panel panel-wide">
+              <header class="panel-head"><div><small>Telemetría</small><h3>Últimas 48 horas</h3></div><div class="segmented"><button class="active" data-overview-metric="temperature_in">Temperatura</button><button data-overview-metric="humidity_in">Humedad</button><button data-overview-metric="weight_kg">Peso</button></div></header>
+              <div class="chart-large"><canvas id="overviewChart"></canvas><div class="empty-chart" id="overviewChartEmpty">Todavía no hay mediciones para graficar.</div></div>
+            </article>
+            <article class="panel weather-panel">
+              <header class="panel-head"><div><small>Clima</small><h3 id="weatherPlace">Sin ubicación</h3></div><span id="weatherIcon">—</span></header>
+              <div class="weather-current"><b id="weatherTemp">—</b><span>°C</span></div><p id="weatherText">Agregue latitud y longitud al apiario para ver el pronóstico.</p><div class="weather-meta"><span>Humedad <b id="weatherHumidity">—</b></span><span>Viento <b id="weatherWind">—</b></span></div><small class="weather-source">Pronóstico de Open-Meteo</small>
+            </article>
+          </div>
+
+          <div class="overview-grid lower">
+            <article class="panel panel-wide"><header class="panel-head"><div><small>Colmenas</small><h3>Estado operativo</h3></div><button class="text-button" data-go-view="hives">Ver todas →</button></header><div class="hive-card-grid" id="overviewHiveCards"></div></article>
+            <article class="panel"><header class="panel-head"><div><small>Prioridad</small><h3>Alertas abiertas</h3></div><button class="text-button" data-go-view="alerts">Ver todas →</button></header><div class="alert-list" id="overviewAlerts"></div></article>
+          </div>
+
+          <article class="panel"><header class="panel-head"><div><small>Próximos 14 días</small><h3>Agenda</h3></div><button class="text-button" data-go-view="calendar">Abrir calendario →</button></header><div class="event-strip" id="overviewEvents"></div></article>
+        </section>
+
+        <section class="dash-view" data-view-panel="apiaries">
+          <div class="view-actions"><div><h2>Apiarios</h2><p>Ubicaciones, coordenadas y colmenas asociadas.</p></div><button class="button button-primary" data-open-dialog="apiaryDialog">+ Nuevo apiario</button></div>
+          <div class="content-grid cards" id="apiaryCards"></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="hives">
+          <div class="view-actions"><div><h2>Colmenas</h2><p>Organización, conexión y última telemetría.</p></div><button class="button button-primary" data-open-dialog="hiveDialog">+ Nueva colmena</button></div>
+          <div class="filter-bar"><input id="hiveSearch" type="search" placeholder="Buscar colmena"><select id="hiveApiaryFilter"><option value="">Todos los apiarios</option></select></div>
+          <div class="content-grid cards" id="hiveCards"></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="readings">
+          <div class="view-actions"><div><h2>Mediciones</h2><p>Históricos por colmena, variable y rango de fechas.</p></div><button class="button button-ghost" id="exportReadings">Descargar CSV</button></div>
+          <div class="filter-bar multi"><select id="readingHive"><option value="">Todas las colmenas</option></select><select id="readingMetric"><option value="temperature_in">Temperatura interna</option><option value="humidity_in">Humedad interna</option><option value="temperature_out">Temperatura exterior</option><option value="humidity_out">Humedad exterior</option><option value="weight_kg">Peso</option><option value="co2_ppm">CO₂</option><option value="oxygen_pct">Oxígeno</option><option value="sound_level">Sonido</option><option value="vibration_level">Vibración</option><option value="battery_v">Batería</option><option value="solar_v">Panel solar</option><option value="bee_flow_in">Entrada de abejas</option><option value="bee_flow_out">Salida de abejas</option><option value="food_level_pct">Alimento</option></select><input id="readingFrom" type="date"><input id="readingTo" type="date"><button class="button button-primary" id="loadReadings">Mostrar</button></div>
+          <article class="panel"><header class="panel-head"><div><small id="readingUnit">Variable</small><h3 id="readingChartTitle">Mediciones</h3></div></header><div class="chart-xl"><canvas id="readingChart"></canvas><div class="empty-chart" id="readingChartEmpty">Seleccione una colmena o espere las primeras mediciones.</div></div></article>
+          <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Colmena</th><th>Dispositivo</th><th>Valor</th></tr></thead><tbody id="readingTable"></tbody></table></div></article>
+        </section>
+
+        <section class="dash-view" data-view-panel="alerts">
+          <div class="view-actions"><div><h2>Alertas</h2><p>Eventos automáticos generados por telemetría y umbrales.</p></div><select id="alertStatusFilter"><option value="open">Abiertas</option><option value="acknowledged">Reconocidas</option><option value="closed">Cerradas</option><option value="">Todas</option></select></div>
+          <div class="alert-board" id="alertBoard"></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="production">
+          <div class="view-actions"><div><h2>Producción</h2><p>Registro de cosechas y evolución por colmena.</p></div><button class="button button-primary" data-open-dialog="productionDialog">+ Registrar producción</button></div>
+          <div class="summary-grid compact"><article class="summary-card"><span class="summary-icon honey">↗</span><div><small>Total filtrado</small><b><span id="productionTotal">0</span> kg</b><em id="productionCount">0 registros</em></div></article></div>
+          <article class="panel"><div class="chart-large"><canvas id="productionChart"></canvas><div class="empty-chart" id="productionChartEmpty">Todavía no hay registros de producción.</div></div></article>
+          <article class="panel"><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Colmena</th><th>Kilos</th><th>Tipo</th><th>Notas</th><th></th></tr></thead><tbody id="productionTable"></tbody></table></div></article>
+        </section>
+
+        <section class="dash-view" data-view-panel="health">
+          <div class="view-actions"><div><h2>Sanidad</h2><p>Tratamientos y control de varroa por colmena.</p></div><div class="inline-actions"><button class="button button-ghost" data-open-dialog="varroaDialog">+ Conteo de varroa</button><button class="button button-primary" data-open-dialog="treatmentDialog">+ Tratamiento</button></div></div>
+          <div class="two-column"><article class="panel"><header class="panel-head"><div><small>Manejo sanitario</small><h3>Tratamientos</h3></div></header><div class="table-wrap"><table><thead><tr><th>Colmena</th><th>Producto</th><th>Inicio</th><th>Retiro</th><th>Estado</th><th></th></tr></thead><tbody id="treatmentTable"></tbody></table></div></article><article class="panel"><header class="panel-head"><div><small>Monitoreo</small><h3>Últimos conteos de varroa</h3></div></header><div id="varroaCards" class="stack-list"></div></article></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="queens">
+          <div class="view-actions"><div><h2>Reinas</h2><p>Historial de introducción, origen, color y estado.</p></div><button class="button button-primary" data-open-dialog="queenDialog">+ Nueva reina</button></div>
+          <div class="content-grid cards" id="queenCards"></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="calendar">
+          <div class="view-actions"><div><h2>Calendario</h2><p>Revisiones, sanidad, alimentación, cosechas y traslados.</p></div><button class="button button-primary" data-open-dialog="eventDialog">+ Nuevo evento</button></div>
+          <div class="calendar-toolbar"><button id="calendarPrev" type="button">←</button><h3 id="calendarTitle"></h3><button id="calendarNext" type="button">→</button></div>
+          <div class="calendar-layout"><div class="calendar-grid" id="calendarGrid"></div><article class="panel"><header class="panel-head"><div><small>Mes seleccionado</small><h3>Eventos</h3></div></header><div class="stack-list" id="calendarEvents"></div></article></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="notes">
+          <div class="view-actions"><div><h2>Anotaciones</h2><p>Observaciones generales o vinculadas a una colmena.</p></div><button class="button button-primary" data-open-dialog="noteDialog">+ Nueva anotación</button></div>
+          <div class="note-grid" id="noteGrid"></div>
+        </section>
+
+        <section class="dash-view" data-view-panel="devices">
+          <div class="view-actions"><div><h2>Dispositivos</h2><p>Estado de madres e hijos. Los códigos secretos nunca se muestran aquí.</p></div></div>
+          <div class="notice-card"><span>i</span><div><b>Vinculación segura</b><p>Las madres se provisionan fuera de la cuenta del usuario. Los hijos detectados aparecen como pendientes hasta que se asignan a una colmena.</p></div></div>
+          <article class="panel"><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Dispositivo</th><th>Madre</th><th>Colmena</th><th>Estado</th><th>Última conexión</th><th></th></tr></thead><tbody id="deviceTable"></tbody></table></div></article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="loading-overlay" id="loadingOverlay"><div class="loader"></div></div>
+
+  <dialog id="apiaryDialog" class="app-dialog"><form method="dialog" data-form="apiary"><header><div><small>Ubicación</small><h3 id="apiaryDialogTitle">Nuevo apiario</h3></div><button type="button" data-close-dialog aria-label="Cerrar">×</button></header><input type="hidden" name="id"><div class="form-grid"><label class="span-2">Nombre<input name="name" required maxlength="120"></label><label>Localidad<input name="locality"></label><label>Provincia<input name="province"></label><label>Latitud<input name="latitude" type="number" step="0.0000001"></label><label>Longitud<input name="longitude" type="number" step="0.0000001"></label><label class="span-2">Descripción<textarea name="description" rows="4"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar apiario</button></footer></form></dialog>
+
+  <dialog id="hiveDialog" class="app-dialog"><form method="dialog" data-form="hive"><header><div><small>Colmena</small><h3 id="hiveDialogTitle">Nueva colmena</h3></div><button type="button" data-close-dialog aria-label="Cerrar">×</button></header><input type="hidden" name="id"><div class="form-grid"><label>Apiario<select name="apiary_id" required></select></label><label>Nombre visible<input name="display_name" required maxlength="120" placeholder="Colmena 01"></label><label>Referencia externa<input name="external_ref" placeholder="Opcional"></label><label>Fecha de instalación<input name="installed_at" type="date"></label><label>Estado<select name="status"><option value="active">Activa</option><option value="maintenance">Mantenimiento</option><option value="inactive">Inactiva</option><option value="lost">Perdida</option></select></label><label class="span-2">Notas<textarea name="notes" rows="4"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar colmena</button></footer></form></dialog>
+
+  <dialog id="productionDialog" class="app-dialog"><form method="dialog" data-form="production"><header><div><small>Cosecha</small><h3>Registrar producción</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id" required></select></label><label>Fecha<input name="produced_on" type="date" required></label><label>Kilos<input name="kilos" type="number" min="0" step="0.01" required></label><label>Tipo<input name="harvest_type" placeholder="Miel, polen, propóleo..."></label><label class="span-2">Notas<textarea name="notes" rows="3"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar registro</button></footer></form></dialog>
+
+  <dialog id="treatmentDialog" class="app-dialog"><form method="dialog" data-form="treatment"><header><div><small>Sanidad</small><h3>Nuevo tratamiento</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id" required></select></label><label>Producto<input name="product_name" required></label><label>Fecha de inicio<input name="started_on" type="date" required></label><label>Retiro estimado<input name="expected_removal_on" type="date"></label><label class="span-2">Notas<textarea name="notes" rows="3"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar tratamiento</button></footer></form></dialog>
+
+  <dialog id="varroaDialog" class="app-dialog"><form method="dialog" data-form="varroa"><header><div><small>Control sanitario</small><h3>Conteo de varroa</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id" required></select></label><label>Fecha<input name="measured_on" type="date" required></label><label>Porcentaje<input name="percentage" type="number" min="0" max="100" step="0.1" required></label><label>Método<input name="method" placeholder="Lavado con alcohol, azúcar..."></label><label class="span-2">Notas<textarea name="notes" rows="3"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar conteo</button></footer></form></dialog>
+
+  <dialog id="queenDialog" class="app-dialog"><form method="dialog" data-form="queen"><header><div><small>Reina</small><h3>Nueva reina</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id" required></select></label><label>Fecha de introducción<input name="introduced_on" type="date" required></label><label>Año de nacimiento<input name="birth_year" type="number" min="1900" max="2100"></label><label>Origen<input name="origin"></label><label>Color de marcación<select name="marking_color"><option value="">Automático por año</option><option value="Blanco">Blanco</option><option value="Amarillo">Amarillo</option><option value="Rojo">Rojo</option><option value="Verde">Verde</option><option value="Azul">Azul</option></select></label><label class="span-2">Notas<textarea name="notes" rows="3"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar reina</button></footer></form></dialog>
+
+  <dialog id="eventDialog" class="app-dialog"><form method="dialog" data-form="event"><header><div><small>Agenda</small><h3>Nuevo evento</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id"><option value="">Todo el apiario</option></select></label><label>Fecha<input name="event_date" type="date" required></label><label>Hora<input name="start_time" type="time"></label><label>Tipo<select name="event_type"><option value="revision">Revisión</option><option value="sanidad">Sanidad</option><option value="alimentacion">Alimentación</option><option value="cosecha">Cosecha</option><option value="traslado">Traslado</option><option value="otro">Otro</option></select></label><label class="span-2">Título<input name="title" required></label><label class="span-2">Notas<textarea name="notes" rows="3"></textarea></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar evento</button></footer></form></dialog>
+
+  <dialog id="noteDialog" class="app-dialog"><form method="dialog" data-form="note"><header><div><small>Anotación</small><h3>Nueva anotación</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id"><option value="">General</option></select></label><label>Título<input name="title"></label><label class="span-2">Texto<textarea name="note_text" rows="7" required></textarea></label><label class="checkbox-label span-2"><input name="pinned" type="checkbox"><span>Fijar esta anotación</span></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar anotación</button></footer></form></dialog>
+
+  <dialog id="deviceDialog" class="app-dialog"><form method="dialog" data-form="device"><header><div><small>Dispositivo</small><h3>Asignar dispositivo</h3></div><button type="button" data-close-dialog>×</button></header><input type="hidden" name="id"><div class="form-grid"><label class="span-2">Nombre visible<input name="display_name"></label><label class="span-2">Colmena<select name="hive_id"><option value="">Sin asignar</option></select></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar asignación</button></footer></form></dialog>
+</body>
+</html>

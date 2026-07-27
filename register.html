@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="">
+  <title>Crear cuenta — Mellifera Technology</title>
+  <link rel="icon" href="assets/img/logo-light.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body class="auth-page">
+  <a class="auth-back" href="index.html">← Volver al sitio</a>
+  <main class="auth-shell">
+    <section class="auth-visual register-visual">
+      <div class="auth-glow"></div>
+      <a class="brand" href="index.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>MELLIFERA</span></a>
+      <div class="auth-message"><span class="eyebrow"><i></i> Nueva cuenta</span><h1>Empiece a construir<br><span>el historial de su apiario.</span></h1><p>Al registrarse se crea una identidad interna única. Ese código queda oculto y se utiliza para separar de forma segura sus dispositivos y datos.</p></div>
+      <div class="auth-feature-list"><span><b>✓</b> Código interno automático</span><span><b>✓</b> Datos aislados por usuario</span><span><b>✓</b> Primer apiario creado</span></div>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-card auth-card-large">
+        <span class="eyebrow"><i></i> Registro</span>
+        <h2>Crear cuenta</h2>
+        <p>Complete sus datos para ingresar al panel.</p>
+        <form id="authForm" data-mode="register">
+          <label>Nombre<input id="name" name="name" type="text" autocomplete="name" required maxlength="120" placeholder="Nombre y apellido"></label>
+          <label>Email<input id="email" name="email" type="email" autocomplete="email" required maxlength="190" placeholder="nombre@dominio.com"></label>
+          <label>Contraseña<div class="password-field"><input id="password" name="password" type="password" autocomplete="new-password" required minlength="10" placeholder="Mínimo 10 caracteres"><button class="password-toggle" type="button" data-target="password">Ver</button></div></label>
+          <label>Repetir contraseña<div class="password-field"><input id="passwordConfirm" name="password_confirm" type="password" autocomplete="new-password" required minlength="10" placeholder="Repita la contraseña"><button class="password-toggle" type="button" data-target="passwordConfirm">Ver</button></div></label>
+          <label class="terms"><input id="terms" type="checkbox" required><span>Acepto que la plataforma almacene la información necesaria para operar mi cuenta.</span></label>
+          <button class="button button-primary button-full" type="submit">Crear cuenta y entrar</button>
+          <p class="form-status" id="authStatus" role="alert"></p>
+        </form>
+        <div class="auth-divider"><span>¿Ya tiene cuenta?</span></div>
+        <a class="button button-ghost button-full" href="login.html">Iniciar sesión</a>
+      </div>
+    </section>
+  </main>
+  <script src="config.js" defer></script>
+  <script src="assets/js/auth.js" defer></script>
+  <script src="pwa.js" defer></script>
+</body>
+</html>
