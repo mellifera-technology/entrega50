@@ -39,6 +39,7 @@
 
   <main>
     <section class="hero" id="inicio">
+      <div class="hero-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
       <div class="hero-copy reveal">
         <span class="eyebrow"><i></i> Apicultura conectada, simple y precisa</span>
         <h1>Entender el apiario<br><span>antes de abrir la colmena.</span></h1>
@@ -84,11 +85,18 @@
     </section>
 
     <section class="metric-strip">
-      <article><b>24/7</b><span>Monitoreo continuo</span></article>
-      <article><b>1 panel</b><span>Todo el apiario</span></article>
+      <article><b data-count="24">24/7</b><span>Monitoreo continuo</span></article>
+      <article><b data-count="1">1 panel</b><span>Todo el apiario</span></article>
       <article><b>HTTPS</b><span>Telemetría protegida</span></article>
       <article><b>Local</b><span>Base bajo su control</span></article>
     </section>
+
+    <div class="live-data-ribbon" aria-label="Sensores compatibles">
+      <div class="live-data-track">
+        <span><i></i><b>TEMP</b> temperatura interna</span><span><i></i><b>HUM</b> humedad</span><span><i></i><b>MOV</b> actividad en piquera</span><span><i></i><b>RUI</b> zumbido</span><span><i></i><b>CO₂</b> gases</span><span><i></i><b>NH₃</b> amoníaco</span><span><i></i><b>POS</b> alarma de caída</span>
+        <span><i></i><b>TEMP</b> temperatura interna</span><span><i></i><b>HUM</b> humedad</span><span><i></i><b>MOV</b> actividad en piquera</span><span><i></i><b>RUI</b> zumbido</span><span><i></i><b>CO₂</b> gases</span><span><i></i><b>NH₃</b> amoníaco</span><span><i></i><b>POS</b> alarma de caída</span>
+      </div>
+    </div>
 
     <section class="marketing-section" id="solucion">
       <header class="section-heading reveal">
@@ -97,7 +105,7 @@
         <p>El sistema no se limita a mostrar sensores: organiza el apiario, relaciona eventos y ayuda a priorizar qué colmena necesita atención.</p>
       </header>
       <div class="bento-grid">
-        <article class="bento bento-wide reveal"><span class="bento-icon">⌁</span><h3>Telemetría en contexto</h3><p>Temperatura, humedad, peso, gases, sonido, vibración, inclinación, flujo de abejas y energía. Por colmena, período y apiario.</p><div class="sensor-cloud"><span>Temperatura</span><span>Humedad</span><span>Peso</span><span>CO₂</span><span>Sonido</span><span>Movimiento</span><span>Batería</span></div></article>
+        <article class="bento bento-wide reveal"><span class="bento-icon">⌁</span><h3>Telemetría en contexto</h3><p>Temperatura, humedad, actividad en la piquera, zumbido, gases y posición. Cada lectura queda asociada automáticamente con la colmena correcta.</p><div class="sensor-cloud"><span>TEMP</span><span>HUM</span><span>MOV</span><span>RUI</span><span>CO₂</span><span>NH₃</span><span>POS</span></div></article>
         <article class="bento reveal"><span class="bento-icon">!</span><h3>Alertas útiles</h3><p>Eventos ordenados por criticidad, con la colmena y la variable que originó el aviso.</p></article>
         <article class="bento reveal"><span class="bento-icon">✦</span><h3>Sanidad</h3><p>Tratamientos, retiro, eficacia, varroa e historial sanitario.</p></article>
         <article class="bento reveal"><span class="bento-icon">↗</span><h3>Producción</h3><p>Kilos por colmena, apiario, mes, año y campaña.</p></article>
@@ -110,7 +118,7 @@
       <div class="showcase-copy reveal">
         <span class="eyebrow"><i></i> Claridad antes que complejidad</span>
         <h2>Un panel ordenado para mirar primero lo que importa.</h2>
-        <p>La pantalla inicial resume conexión, alertas, última telemetría, producción y próximos eventos. Después permite profundizar por apiario o colmena.</p>
+        <p>La pantalla inicial resume actividad, alertas, telemetría y próximos eventos. Después permite profundizar en cada colmena sin perder la visión general.</p>
         <ul class="feature-list">
           <li>Resumen operativo en tiempo real.</li>
           <li>Detalle individual por colmena.</li>

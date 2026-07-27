@@ -35,25 +35,38 @@
         <button data-view="devices"><span>◉</span>Dispositivos</button>
         <button data-view="history" class="history-nav"><span>≡</span>Historial</button>
       </nav>
-      <div class="sidebar-foot sidebar-foot-expanded">
-        <div class="sidebar-user-line">
-          <div class="user-avatar" id="userAvatar">M</div>
-          <div><b id="sidebarUserName">Cargando…</b><small id="sidebarUserEmail">—</small></div>
-        </div>
-        <button id="logoutButton" class="sidebar-logout" type="button"><span>↪</span>Cerrar sesión</button>
-      </div>
     </aside>
 
     <div class="dash-main">
       <header class="dash-topbar">
         <button class="icon-button mobile-only" id="openSidebar" type="button" aria-label="Abrir menú">☰</button>
         <div class="topbar-title"><small id="viewEyebrow">Panel general</small><h1 id="viewTitle">Resumen del apiario</h1></div>
-        <div class="topbar-actions"><span class="connection-chip" id="connectionChip"><i></i><span>Conectado</span></span><button class="icon-button" id="refreshButton" type="button" title="Actualizar">↻</button></div>
+        <div class="topbar-actions">
+          <div class="session-control">
+            <button class="session-button" id="sessionButton" type="button" aria-expanded="false" aria-controls="sessionMenu">
+              <span class="session-avatar" id="sessionAvatar">M</span>
+              <span class="session-copy"><small>Sesión activa</small><b id="sessionUserName">Cargando…</b></span>
+              <span class="session-chevron">⌄</span>
+            </button>
+            <div class="session-menu" id="sessionMenu" hidden>
+              <div class="session-menu-head"><span class="session-avatar large" id="sessionMenuAvatar">M</span><div><b id="sessionMenuName">—</b><small id="sessionUserEmail">—</small></div></div>
+              <div class="session-meta"><span>Perfil</span><b id="sessionRole">Productor</b></div>
+              <button id="logoutButton" class="session-logout" type="button"><span>↪</span>Cerrar sesión</button>
+            </div>
+          </div>
+          <button class="icon-button" id="refreshButton" type="button" title="Actualizar">↻</button>
+        </div>
       </header>
 
       <div class="impersonation-banner" id="impersonationBanner" hidden>
         <div><b>Vista administrativa:</b> está viendo la cuenta de <strong id="impersonationUserName">—</strong>.</div>
         <button class="button button-ghost button-small" id="stopImpersonationButton" type="button">Volver a administración</button>
+      </div>
+
+      <div class="critical-position-banner" id="criticalPositionBanner" hidden>
+        <span class="critical-siren">!</span>
+        <div><b>ALARMA DE POSICIÓN</b><p id="criticalPositionText">Una colmena informó una caída o movimiento crítico.</p></div>
+        <button class="button button-small alarm-button" type="button" data-go-view="alerts">Revisar alertas</button>
       </div>
 
       <main class="dash-content">
@@ -100,11 +113,14 @@
         <section class="dash-view" data-view-panel="readings">
           <div class="view-actions"><div><h2>Mediciones generales</h2><p>Promedios del apiario completo. La depuración avanzada de valores atípicos se configurará cuando definamos los nombres exactos de sensores.</p></div></div>
           <div class="filter-bar"><select id="readingDays"><option value="2">Últimas 48 horas</option><option value="7" selected>Últimos 7 días</option><option value="30">Últimos 30 días</option></select><button class="button button-primary" id="loadReadings" type="button">Actualizar</button></div>
-          <div class="measurement-card-grid">
-            <article class="measurement-card"><small>Temperatura interna</small><b><span id="measurementTemperature">—</span> °C</b><em id="measurementTemperatureRange">Sin datos</em></article>
-            <article class="measurement-card"><small>Humedad interna</small><b><span id="measurementHumidity">—</span> %</b><em id="measurementHumidityRange">Sin datos</em></article>
-            <article class="measurement-card placeholder-card"><small>Próximo indicador</small><b>Por definir</b><em>Se activará con el código de sensores</em></article>
-            <article class="measurement-card placeholder-card"><small>Próximo indicador</small><b>Por definir</b><em>Se activará con el código de sensores</em></article>
+          <div class="measurement-card-grid sensor-summary-grid">
+            <article class="measurement-card sensor-temperature"><span class="measurement-icon">°</span><small>Temperatura interna</small><b><span id="measurementTemperature">—</span> °C</b><em id="measurementTemperatureRange">Sin datos</em></article>
+            <article class="measurement-card sensor-humidity"><span class="measurement-icon">◌</span><small>Humedad interna</small><b><span id="measurementHumidity">—</span> %</b><em id="measurementHumidityRange">Sin datos</em></article>
+            <article class="measurement-card sensor-activity"><span class="measurement-icon">↝</span><small>Actividad en piquera</small><b><span id="measurementActivity">0</span></b><em id="measurementActivityText">colmenas con movimiento reciente</em></article>
+            <article class="measurement-card sensor-sound"><span class="measurement-icon">≈</span><small>Ruido / zumbido</small><b><span id="measurementSound">—</span></b><em id="measurementSoundText">nivel promedio actual</em></article>
+            <article class="measurement-card sensor-co2"><span class="measurement-icon">CO₂</span><small>Dióxido de carbono</small><b><span id="measurementCo2">—</span> ppm</b><em id="measurementCo2Text">promedio general</em></article>
+            <article class="measurement-card sensor-nh3"><span class="measurement-icon">NH₃</span><small>Amoníaco</small><b><span id="measurementNh3">—</span> ppm</b><em id="measurementNh3Text">promedio general</em></article>
+            <article class="measurement-card sensor-position"><span class="measurement-icon">!</span><small>Posición</small><b><span id="measurementPosition">0</span></b><em id="measurementPositionText">colmenas en alarma</em></article>
           </div>
           <div class="two-column measurement-charts">
             <article class="panel"><header class="panel-head"><div><small>Promedio general</small><h3>Temperatura</h3></div></header><div class="chart-large"><canvas id="temperatureGeneralChart"></canvas><div class="empty-chart" id="temperatureGeneralEmpty">Sin mediciones.</div></div></article>

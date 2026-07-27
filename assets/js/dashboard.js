@@ -71,6 +71,21 @@
     return `${y}-${m}-${d}`;
   }
 
+  function isRecent(value, minutes = 20) {
+    if (!value) return false;
+    const date = new Date(String(value).replace(' ', 'T'));
+    return !Number.isNaN(date.getTime()) && Date.now() - date.getTime() <= minutes * 60 * 1000;
+  }
+
+  function hasEntranceActivity(item) {
+    return Number(item.movement_value || 0) > 0 && isRecent(item.movement_at, 20);
+  }
+
+  function hasPositionAlarm(item) {
+    return Number(item.position_alarm_open || 0) === 1
+      || Math.abs(Number(item.position_value || 0)) > 0.000001;
+  }
+
   function setLoading(show) {
     $('#loadingOverlay')?.classList.toggle('show', show);
   }
@@ -236,9 +251,13 @@
         return;
       }
 
-      $('#sidebarUserName').textContent = me.user.name;
-      $('#sidebarUserEmail').textContent = me.user.email;
-      $('#userAvatar').textContent = me.user.name.trim().charAt(0).toUpperCase();
+      const initial = me.user.name.trim().charAt(0).toUpperCase();
+      $('#sessionUserName').textContent = me.user.name;
+      $('#sessionUserEmail').textContent = me.user.email;
+      $('#sessionAvatar').textContent = initial;
+      $('#sessionMenuAvatar').textContent = initial;
+      $('#sessionMenuName').textContent = me.user.name;
+      $('#sessionRole').textContent = me.user.role === 'technician' ? 'Técnico' : 'Productor';
       $('#welcomeName').textContent = me.user.name.trim().split(/\s+/)[0];
       $('#todayLabel').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -264,6 +283,14 @@
   function bindEvents() {
     $('#openSidebar')?.addEventListener('click', () => $('#sidebar')?.classList.add('open'));
     $('#closeSidebar')?.addEventListener('click', () => $('#sidebar')?.classList.remove('open'));
+    $('#sessionButton')?.addEventListener('click', event => {
+      event.stopPropagation();
+      const button = event.currentTarget;
+      const menu = $('#sessionMenu');
+      const opening = menu.hasAttribute('hidden');
+      menu.toggleAttribute('hidden', !opening);
+      button.setAttribute('aria-expanded', String(opening));
+    });
     $$('#sideNav button[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
     $$('[data-go-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.goView)));
     $('#refreshButton')?.addEventListener('click', () => refreshCurrentView(true));
@@ -290,6 +317,12 @@
     $('#loadHistory')?.addEventListener('click', loadHistory);
     $('#treatmentAllHives')?.addEventListener('change', toggleTreatmentChecklist);
 
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.session-control')) {
+        $('#sessionMenu')?.setAttribute('hidden', '');
+        $('#sessionButton')?.setAttribute('aria-expanded', 'false');
+      }
+    });
     document.addEventListener('click', handleDelegatedClick);
     document.addEventListener('dragstart', handleDragStart);
     document.addEventListener('dragover', event => {
@@ -393,6 +426,16 @@
     $('#sumOnline').textContent = summary.devices_online ?? 0;
     $('#sumDevices').textContent = `${summary.devices_total ?? 0} registrados`;
     $('#sumAlerts').textContent = summary.open_alerts ?? 0;
+    const positionCount = Number(summary.position_alarms || 0);
+    const alarmBanner = $('#criticalPositionBanner');
+    if (positionCount > 0) {
+      alarmBanner?.removeAttribute('hidden');
+      $('#criticalPositionText').textContent = positionCount === 1
+        ? 'Una colmena informó una caída o movimiento crítico. Revísela de inmediato.'
+        : `${positionCount} colmenas informaron una caída o movimiento crítico. Revise las alertas de inmediato.`;
+    } else {
+      alarmBanner?.setAttribute('hidden', '');
+    }
     renderOverviewHives(data.hives || []);
     renderOverviewAlerts(data.alerts || []);
     renderOverviewEvents(data.events || []);
@@ -406,8 +449,16 @@
       return;
     }
     container.innerHTML = items.slice(0, 6).map(item => {
-      const online = item.last_seen_at && Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000;
-      return `<article class="hive-mini"><div class="hive-mini-head"><div><h4>${escapeHtml(item.display_name)}</h4><small>${item.device_id ? 'Con sensores' : 'Manual'}</small></div><i class="status-dot ${online ? 'online' : ''}"></i></div><div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div></article>`;
+      const online = isRecent(item.last_seen_at, 20);
+      const activity = hasEntranceActivity(item);
+      const positionAlarm = hasPositionAlarm(item);
+      return `<article class="hive-mini ${positionAlarm ? 'hive-mini-alarm' : ''}">
+        <div class="hive-mini-head"><div><h4>${escapeHtml(item.display_name)}</h4><small>${item.device_id ? 'Con sensores' : 'Manual'}</small></div><i class="status-dot ${online ? 'online' : ''}"></i></div>
+        ${positionAlarm ? '<div class="hive-position-alarm">Posible caída o movimiento crítico</div>' : ''}
+        ${activity ? '<span class="hive-activity-badge"><i></i>Actividad en la piquera</span>' : ''}
+        <div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div>
+        <div class="hive-mini-sensors"><span>Ruido <b>${formatNumber(item.sound_level)}</b></span><span>CO₂ <b>${formatNumber(item.co2_ppm, 0)} ppm</b></span><span>NH₃ <b>${formatNumber(item.nh3_ppm, 0)} ppm</b></span></div>
+      </article>`;
     }).join('');
   }
 
@@ -469,13 +520,17 @@
 
     container.innerHTML = items.map(item => {
       const manual = Number(item.is_manual) === 1;
-      const online = item.last_seen_at && Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000;
+      const online = isRecent(item.last_seen_at, 20);
+      const activity = hasEntranceActivity(item);
+      const positionAlarm = hasPositionAlarm(item);
       const queenYear = item.queen_birth_year || 'Sin registrar';
       const varroa = item.latest_varroa_percentage === null ? '—' : `${formatNumber(item.latest_varroa_percentage, 1)}%`;
-      return `<article class="content-card hive-detail-card">
+      return `<article class="content-card hive-detail-card ${positionAlarm ? 'hive-card-critical' : ''}">
         <div class="card-top"><div><small>${manual ? 'Colmena manual' : 'Colmena con sensores'}</small><h3>${escapeHtml(item.display_name)}</h3></div>${manual ? '<span class="status-badge manual">Manual</span>' : `<i class="status-dot ${online ? 'online' : ''}" title="${online ? 'En línea' : 'Sin conexión reciente'}"></i>`}</div>
+        ${positionAlarm ? '<div class="hive-position-alarm">ALARMA: posible caída, vuelco o desplazamiento</div>' : ''}
+        ${activity ? '<span class="hive-activity-badge"><i></i>Hay actividad en la piquera</span>' : ''}
         <div class="hive-card-identity"><span class="queen-dot" style="background:${queenColor(item.queen_birth_year)}"></span><div><small>Reina</small><b>${escapeHtml(queenYear)}</b></div><div><small>Tratamientos activos</small><b>${Number(item.active_treatment_count || 0)}</b></div><div><small>Última varroa</small><b>${varroa}</b></div></div>
-        ${manual ? '<div class="manual-hive-notice">Sin sensores: disponible para reina, sanidad, producción y observaciones manuales.</div>' : `<div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div>`}
+        ${manual ? '<div class="manual-hive-notice">Sin sensores: disponible para reina, sanidad, producción y observaciones manuales.</div>' : `<div class="hive-sensor-grid"><span><small>Temperatura</small><b>${formatNumber(item.temperature_in)} °C</b></span><span><small>Humedad</small><b>${formatNumber(item.humidity_in)} %</b></span><span><small>Ruido</small><b>${formatNumber(item.sound_level)}</b></span><span><small>CO₂</small><b>${formatNumber(item.co2_ppm, 0)} ppm</b></span><span><small>NH₃</small><b>${formatNumber(item.nh3_ppm, 0)} ppm</b></span></div>`}
         <p class="hive-notes-preview">${escapeHtml(item.notes || 'Sin observaciones.')}</p>
         <div class="card-actions"><button class="mini-button" data-edit-hive="${item.id}">Editar nombre, reina y observaciones</button>${manual ? `<button class="mini-button danger" data-delete-hive="${item.id}">Eliminar manual</button>` : ''}</div>
       </article>`;
@@ -484,15 +539,28 @@
 
   async function loadReadings() {
     const days = $('#readingDays')?.value || '7';
-    const [temperature, humidity] = await Promise.all([
+    const [temperature, humidity, summary] = await Promise.all([
       api(`/api/dashboard/overview_series.php?metric=temperature_in&days=${encodeURIComponent(days)}`),
       api(`/api/dashboard/overview_series.php?metric=humidity_in&days=${encodeURIComponent(days)}`),
+      api('/api/dashboard/sensor_summary.php'),
     ]);
 
     $('#measurementTemperature').textContent = formatNumber(temperature.stats.average, 1);
     $('#measurementTemperatureRange').textContent = temperature.stats.average === null ? 'Sin datos' : `${formatNumber(temperature.stats.minimum, 1)} a ${formatNumber(temperature.stats.maximum, 1)} °C · ${temperature.stats.hive_count} colmenas`;
     $('#measurementHumidity').textContent = formatNumber(humidity.stats.average, 1);
     $('#measurementHumidityRange').textContent = humidity.stats.average === null ? 'Sin datos' : `${formatNumber(humidity.stats.minimum, 1)} a ${formatNumber(humidity.stats.maximum, 1)} % · ${humidity.stats.hive_count} colmenas`;
+
+    const metrics = summary.metrics || {};
+    $('#measurementActivity').textContent = summary.activity_hives ?? 0;
+    $('#measurementActivityText').textContent = Number(summary.activity_hives || 0) === 1 ? 'colmena con movimiento reciente' : 'colmenas con movimiento reciente';
+    $('#measurementSound').textContent = formatNumber(metrics.RUI?.average, 1);
+    $('#measurementSoundText').textContent = metrics.RUI ? `${metrics.RUI.hive_count} colmenas con lectura` : 'nivel promedio actual';
+    $('#measurementCo2').textContent = formatNumber(metrics.CO2?.average, 0);
+    $('#measurementCo2Text').textContent = metrics.CO2 ? `${metrics.CO2.hive_count} colmenas con lectura` : 'promedio general';
+    $('#measurementNh3').textContent = formatNumber(metrics.NH3?.average, 0);
+    $('#measurementNh3Text').textContent = metrics.NH3 ? `${metrics.NH3.hive_count} colmenas con lectura` : 'promedio general';
+    $('#measurementPosition').textContent = summary.position_alarms ?? 0;
+    $('#measurementPositionText').textContent = Number(summary.position_alarms || 0) === 1 ? 'colmena en alarma' : 'colmenas en alarma';
 
     const tempChart = datasetsFromSeries(temperature, '', true);
     const humidityChart = datasetsFromSeries(humidity, '', true);
@@ -809,15 +877,6 @@
       openDialog('eventDialog', { event_date: calendarDay.dataset.calendarDate, task_status: 'pending' });
     }
   }
-
-  window.addEventListener('online', () => {
-    $('#connectionChip')?.classList.remove('offline');
-    $('#connectionChip span').textContent = 'Conectado';
-  });
-  window.addEventListener('offline', () => {
-    $('#connectionChip')?.classList.add('offline');
-    $('#connectionChip span').textContent = 'Sin conexión';
-  });
 
   bootstrap();
 })();

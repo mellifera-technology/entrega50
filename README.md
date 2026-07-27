@@ -18,4 +18,4 @@ Frontend publicado en:
 
 Subir **el contenido** de esta carpeta a la raíz del repositorio de GitHub Pages. Conservar `CNAME` con `app.mellifera-technology.com`.
 
-Después de publicar, recargar con `Ctrl + Shift + R`. La versión del Service Worker es `mellifera-app-v3`.
+Después de publicar, recargar con `Ctrl + Shift + R`. La versión del Service Worker es `mellifera-app-v5`.
