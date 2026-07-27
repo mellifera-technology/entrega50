@@ -457,7 +457,7 @@
         ${positionAlarm ? '<div class="hive-position-alarm">Posible caída o movimiento crítico</div>' : ''}
         ${activity ? '<span class="hive-activity-badge"><i></i>Actividad en la piquera</span>' : ''}
         <div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div>
-        <div class="hive-mini-sensors"><span>Ruido <b>${formatNumber(item.sound_level)}</b></span><span>CO₂ <b>${formatNumber(item.co2_ppm, 0)} ppm</b></span><span>NH₃ <b>${formatNumber(item.nh3_ppm, 0)} ppm</b></span></div>
+        <div class="hive-mini-sensors"><span>Ruido <b>${formatNumber(item.sound_level)}</b></span><span>CO₂ <b>${formatNumber(item.co2_ppm, 0)}</b></span><span>NH₃ <b>${formatNumber(item.nh3_ppm, 0)}</b></span><span>NOx <b>${formatNumber(item.nox_ppm, 0)}</b></span><span>ALC <b>${formatNumber(item.alc_ppm, 0)}</b></span><span>Humo <b>${formatNumber(item.smk_ppm, 0)}</b></span></div>
       </article>`;
     }).join('');
   }
@@ -530,7 +530,7 @@
         ${positionAlarm ? '<div class="hive-position-alarm">ALARMA: posible caída, vuelco o desplazamiento</div>' : ''}
         ${activity ? '<span class="hive-activity-badge"><i></i>Hay actividad en la piquera</span>' : ''}
         <div class="hive-card-identity"><span class="queen-dot" style="background:${queenColor(item.queen_birth_year)}"></span><div><small>Reina</small><b>${escapeHtml(queenYear)}</b></div><div><small>Tratamientos activos</small><b>${Number(item.active_treatment_count || 0)}</b></div><div><small>Última varroa</small><b>${varroa}</b></div></div>
-        ${manual ? '<div class="manual-hive-notice">Sin sensores: disponible para reina, sanidad, producción y observaciones manuales.</div>' : `<div class="hive-sensor-grid"><span><small>Temperatura</small><b>${formatNumber(item.temperature_in)} °C</b></span><span><small>Humedad</small><b>${formatNumber(item.humidity_in)} %</b></span><span><small>Ruido</small><b>${formatNumber(item.sound_level)}</b></span><span><small>CO₂</small><b>${formatNumber(item.co2_ppm, 0)} ppm</b></span><span><small>NH₃</small><b>${formatNumber(item.nh3_ppm, 0)} ppm</b></span></div>`}
+        ${manual ? '<div class="manual-hive-notice">Sin sensores: disponible para reina, sanidad, producción y observaciones manuales.</div>' : `<div class="hive-sensor-grid"><span><small>Temperatura</small><b>${formatNumber(item.temperature_in)} °C</b></span><span><small>Humedad</small><b>${formatNumber(item.humidity_in)} %</b></span><span><small>Ruido</small><b>${formatNumber(item.sound_level)}</b></span><span><small>CO₂</small><b>${formatNumber(item.co2_ppm, 0)} ppm</b></span><span><small>NH₃</small><b>${formatNumber(item.nh3_ppm, 0)} ppm</b></span><span><small>NOx</small><b>${formatNumber(item.nox_ppm, 0)} estim.</b></span><span><small>Alcoholes</small><b>${formatNumber(item.alc_ppm, 0)} estim.</b></span><span><small>Humo</small><b>${formatNumber(item.smk_ppm, 0)} estim.</b></span></div>`}
         <p class="hive-notes-preview">${escapeHtml(item.notes || 'Sin observaciones.')}</p>
         <div class="card-actions"><button class="mini-button" data-edit-hive="${item.id}">Editar nombre, reina y observaciones</button>${manual ? `<button class="mini-button danger" data-delete-hive="${item.id}">Eliminar manual</button>` : ''}</div>
       </article>`;
@@ -559,6 +559,12 @@
     $('#measurementCo2Text').textContent = metrics.CO2 ? `${metrics.CO2.hive_count} colmenas con lectura` : 'promedio general';
     $('#measurementNh3').textContent = formatNumber(metrics.NH3?.average, 0);
     $('#measurementNh3Text').textContent = metrics.NH3 ? `${metrics.NH3.hive_count} colmenas con lectura` : 'promedio general';
+    $('#measurementNox').textContent = formatNumber(metrics.NOX?.average, 0);
+    $('#measurementNoxText').textContent = metrics.NOX ? `${metrics.NOX.hive_count} colmenas con lectura · ppm estimados` : 'ppm estimados';
+    $('#measurementAlc').textContent = formatNumber(metrics.ALC?.average, 0);
+    $('#measurementAlcText').textContent = metrics.ALC ? `${metrics.ALC.hive_count} colmenas con lectura · ppm estimados` : 'ppm estimados';
+    $('#measurementSmk').textContent = formatNumber(metrics.SMK?.average, 0);
+    $('#measurementSmkText').textContent = metrics.SMK ? `${metrics.SMK.hive_count} colmenas con lectura · ppm estimados` : 'ppm estimados';
     $('#measurementPosition').textContent = summary.position_alarms ?? 0;
     $('#measurementPositionText').textContent = Number(summary.position_alarms || 0) === 1 ? 'colmena en alarma' : 'colmenas en alarma';
 
