@@ -1,0 +1,27 @@
+VERIFICACION DEL FLUJO DE HIJOS Y AISLAMIENTO
+=============================================
+
+Revisado en la recepción actual:
+
+1. CODIGO_UNICO se valida contra users.internal_code y exige usuario activo.
+2. SENSOR=NEW busca primero la MAC/identificador del hijo.
+3. Si el hijo no existe:
+   - crea Colmena 001, 002, 003... dentro de la cuenta correcta;
+   - crea el dispositivo tipo child;
+   - vincula hijo, colmena y user_id;
+   - guarda la publicación en incoming_history.
+4. Si vuelve a llegar NEW con la misma MAC:
+   - reutiliza el dispositivo y la colmena;
+   - no crea duplicados.
+5. Si una MAC ya pertenece a otro usuario, la publicación se rechaza como device_conflict.
+6. Si llega una medición antes de NEW, queda almacenada con estado pending_child.
+7. El productor consulta exclusivamente por el user_id de su sesión.
+8. La API no entrega al productor internal_code, MAC ni token.
+9. El instalador ejecuta audit_1_3.php para detectar relaciones cruzadas entre usuarios.
+
+IMPORTANTE PARA LA SIGUIENTE ETAPA
+----------------------------------
+Las publicaciones simples CODIGO_UNICO + MAC + SENSOR + MEDICION ya quedan en Historial.
+Todavía no se convierten automáticamente en temperatura, humedad u otras tarjetas hasta
+que se definan los nombres reales enviados por el código del hijo. Esa asignación se hará
+en la próxima etapa sin perder lo ya recibido.

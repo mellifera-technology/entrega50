@@ -3,51 +3,39 @@
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const csrfMeta = $('meta[name="csrf-token"]');
   const apiBase = String(window.MELLIFERA_CONFIG?.API_BASE || '').replace(/\/+$/, '');
   const apiUrl = path => `${apiBase}${path.startsWith('/') ? path : `/${path}`}`;
+
   const state = {
-    csrf: csrfMeta?.content || '',
+    csrf: '',
     user: null,
-    apiaries: [],
+    actor: null,
+    impersonating: false,
     hives: [],
     devices: [],
     overview: null,
     currentView: 'overview',
     charts: {},
-    readingItems: [],
-    historyItems: [],
-    actor: null,
-    impersonating: false,
-    adminUsers: [],
-    adminProvisioning: null,
+    overviewMetric: 'temperature_in',
+    overviewSeries: null,
     calendarDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    calendarItems: [],
   };
 
   const viewMeta = {
     overview: ['Panel general', 'Resumen del apiario'],
-    apiaries: ['Organización', 'Apiarios'],
     hives: ['Organización', 'Colmenas'],
-    readings: ['Telemetría', 'Mediciones'],
-    history: ['Telemetría', 'Historial recibido'],
+    readings: ['Telemetría', 'Mediciones generales'],
     alerts: ['Telemetría', 'Alertas'],
     production: ['Gestión', 'Producción'],
     health: ['Gestión', 'Sanidad'],
-    queens: ['Gestión', 'Reinas'],
-    calendar: ['Gestión', 'Calendario'],
+    calendar: ['Gestión', 'Calendario y tareas'],
     notes: ['Gestión', 'Anotaciones'],
     devices: ['Infraestructura', 'Dispositivos'],
-    admin: ['Administración', 'Usuarios y dispositivos'],
+    history: ['Telemetría', 'Historial recibido'],
   };
 
-  const metricLabels = {
-    temperature_in: ['Temperatura interna', '°C'], humidity_in: ['Humedad interna', '%'],
-    temperature_out: ['Temperatura exterior', '°C'], humidity_out: ['Humedad exterior', '%'],
-    weight_kg: ['Peso', 'kg'], co2_ppm: ['CO₂', 'ppm'], oxygen_pct: ['Oxígeno', '%'],
-    sound_level: ['Sonido', 'dB'], vibration_level: ['Vibración', 'u'], battery_v: ['Batería', 'V'],
-    solar_v: ['Panel solar', 'V'], bee_flow_in: ['Entrada de abejas', 'conteo'],
-    bee_flow_out: ['Salida de abejas', 'conteo'], food_level_pct: ['Alimento', '%'],
-  };
+  const palette = ['#f3b61f', '#65a7ff', '#5ad890', '#b58cff', '#ff9c56', '#ff7070', '#5dd5d5', '#e98bd0', '#a7d66f', '#8fa8ff'];
 
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -69,6 +57,13 @@
       : { dateStyle: 'short' });
   }
 
+  function shortDateTime(value) {
+    if (!value) return '';
+    const date = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
   function dateInput(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -82,11 +77,12 @@
 
   function toast(message, type = 'success') {
     const container = $('#toastContainer');
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = message;
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 4500);
+    if (!container) return;
+    const element = document.createElement('div');
+    element.className = `toast ${type}`;
+    element.textContent = message;
+    container.appendChild(element);
+    setTimeout(() => element.remove(), 4600);
   }
 
   async function api(path, options = {}) {
@@ -102,9 +98,15 @@
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
 
-    let data;
-    try { data = await response.json(); }
-    catch { data = { message: `Error HTTP ${response.status}` }; }
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`La API devolvió una respuesta inválida (HTTP ${response.status}).`);
+      }
+    }
 
     if (response.status === 401) {
       location.href = 'login.html';
@@ -122,57 +124,98 @@
     }
   }
 
-  function lineChart(key, canvasId, labels, values, unit = '') {
+  function buildLineChart(key, canvasId, labels, datasets, unit, emptyId) {
     destroyChart(key);
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !window.Chart) return;
+    const empty = document.getElementById(emptyId);
+    const hasValues = datasets.some(dataset => dataset.data.some(value => value !== null && value !== undefined));
+    if (empty) empty.style.display = hasValues ? 'none' : 'grid';
+    if (!canvas || !window.Chart || !hasValues) return;
+
     state.charts[key] = new Chart(canvas, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data: values,
-          borderColor: '#f3b61f',
-          backgroundColor: 'rgba(243,182,31,.12)',
-          borderWidth: 2,
-          pointRadius: labels.length > 80 ? 0 : 2,
-          pointHoverRadius: 4,
-          fill: true,
-          tension: .28,
-        }],
-      },
+      data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { intersect: false, mode: 'index' },
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => `${formatNumber(ctx.raw, 2)} ${unit}` } },
+          legend: { display: datasets.length <= 12, labels: { color: '#b9c1cc', boxWidth: 14, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: context => `${context.dataset.label}: ${formatNumber(context.raw, 2)} ${unit}`,
+            },
+          },
         },
         scales: {
-          x: { ticks: { color: '#808895', maxTicksLimit: 9 }, grid: { color: 'rgba(255,255,255,.04)' } },
-          y: { ticks: { color: '#808895', callback: value => `${value}${unit ? ` ${unit}` : ''}` }, grid: { color: 'rgba(255,255,255,.055)' } },
+          x: { ticks: { color: '#808895', maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,.04)' } },
+          y: { ticks: { color: '#808895', callback: value => `${value} ${unit}` }, grid: { color: 'rgba(255,255,255,.055)' } },
         },
       },
     });
   }
 
-  function barChart(key, canvasId, labels, values, unit = '') {
+  function buildBarChart(key, canvasId, labels, values, unit, emptyId) {
     destroyChart(key);
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || !window.Chart) return;
-    state.charts[key] = new Chart(canvas, {
+    const empty = document.getElementById(emptyId);
+    if (empty) empty.style.display = labels.length ? 'none' : 'grid';
+    if (!labels.length || !window.Chart) return;
+    state.charts[key] = new Chart(document.getElementById(canvasId), {
       type: 'bar',
       data: { labels, datasets: [{ data: values, backgroundColor: 'rgba(243,182,31,.75)', borderRadius: 8 }] },
       options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${formatNumber(ctx.raw, 2)} ${unit}` } } },
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => `${formatNumber(context.raw, 2)} ${unit}` } } },
         scales: {
           x: { ticks: { color: '#808895' }, grid: { display: false } },
           y: { beginAtZero: true, ticks: { color: '#808895' }, grid: { color: 'rgba(255,255,255,.055)' } },
         },
       },
     });
+  }
+
+  function datasetsFromSeries(data, search = '', averageOnly = false) {
+    const normalizedSearch = search.trim().toLocaleLowerCase('es');
+    const series = (data.series || []).filter(item => !normalizedSearch || item.hive_name.toLocaleLowerCase('es').includes(normalizedSearch));
+    const labels = [...new Set([
+      ...series.flatMap(item => item.points.map(point => point.at)),
+      ...(data.average || []).map(point => point.at),
+    ])].sort();
+
+    const datasets = [];
+    if (!averageOnly) {
+      series.forEach((item, index) => {
+        const points = new Map(item.points.map(point => [point.at, Number(point.value)]));
+        const color = palette[index % palette.length];
+        datasets.push({
+          label: item.hive_name,
+          data: labels.map(label => points.has(label) ? points.get(label) : null),
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 2,
+          pointRadius: labels.length > 60 ? 0 : 2,
+          pointHoverRadius: 4,
+          tension: .28,
+          spanGaps: true,
+        });
+      });
+    }
+
+    const averageMap = new Map((data.average || []).map(point => [point.at, Number(point.value)]));
+    datasets.push({
+      label: 'Promedio general',
+      data: labels.map(label => averageMap.has(label) ? averageMap.get(label) : null),
+      borderColor: '#f4f2eb',
+      backgroundColor: '#f4f2eb',
+      borderWidth: 2.5,
+      borderDash: [7, 6],
+      pointRadius: 0,
+      tension: .25,
+      spanGaps: true,
+    });
+
+    return { labels: labels.map(shortDateTime), datasets };
   }
 
   async function bootstrap() {
@@ -182,6 +225,7 @@
         location.href = 'login.html';
         return;
       }
+
       state.user = me.user;
       state.actor = me.actor || me.user;
       state.impersonating = Boolean(me.impersonating);
@@ -199,20 +243,19 @@
       $('#todayLabel').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
       if (state.impersonating) {
-        const banner = $('#impersonationBanner');
-        banner?.removeAttribute('hidden');
+        $('#impersonationBanner')?.removeAttribute('hidden');
         $('#impersonationUserName').textContent = me.user.name;
       }
 
       const today = new Date();
-      $('#readingTo').value = dateInput(today);
-      const sevenDays = new Date(today); sevenDays.setDate(today.getDate() - 7);
-      $('#readingFrom').value = dateInput(sevenDays);
+      $('#historyTo').value = dateInput(today);
+      const monthAgo = new Date(today); monthAgo.setDate(today.getDate() - 30);
+      $('#historyFrom').value = dateInput(monthAgo);
 
-      await Promise.all([loadApiaries(), loadHives(), loadDevices()]);
-      populateAllSelects();
-      await loadOverview();
+      await Promise.all([loadHives(), loadDevices()]);
+      populateHiveControls();
       bindEvents();
+      await loadOverview();
     } catch (error) {
       toast(error.message, 'error');
     }
@@ -221,45 +264,51 @@
   function bindEvents() {
     $('#openSidebar')?.addEventListener('click', () => $('#sidebar')?.classList.add('open'));
     $('#closeSidebar')?.addEventListener('click', () => $('#sidebar')?.classList.remove('open'));
-
     $$('#sideNav button[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
     $$('[data-go-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.goView)));
-
     $('#refreshButton')?.addEventListener('click', () => refreshCurrentView(true));
     $('#logoutButton')?.addEventListener('click', logout);
-
+    $('#stopImpersonationButton')?.addEventListener('click', stopImpersonation);
     $$('[data-open-dialog]').forEach(button => button.addEventListener('click', () => openDialog(button.dataset.openDialog)));
     $$('.app-dialog form').forEach(form => form.addEventListener('submit', submitDialogForm));
 
     $$('[data-overview-metric]').forEach(button => button.addEventListener('click', async () => {
+      state.overviewMetric = button.dataset.overviewMetric;
       $$('[data-overview-metric]').forEach(item => item.classList.toggle('active', item === button));
-      await loadOverviewChart(button.dataset.overviewMetric);
+      await loadOverviewSeries();
     }));
-
+    $('#overviewDays')?.addEventListener('change', loadOverviewSeries);
+    $('#overviewHiveSearch')?.addEventListener('input', renderOverviewSeries);
     $('#hiveSearch')?.addEventListener('input', renderHives);
-    $('#hiveApiaryFilter')?.addEventListener('change', renderHives);
+    $('#hiveTypeFilter')?.addEventListener('change', renderHives);
+    $('#readingDays')?.addEventListener('change', loadReadings);
     $('#loadReadings')?.addEventListener('click', loadReadings);
-    $('#readingMetric')?.addEventListener('change', loadReadings);
-    $('#readingHive')?.addEventListener('change', loadReadings);
-    $('#exportReadings')?.addEventListener('click', exportReadingsCsv);
-    $('#loadHistory')?.addEventListener('click', loadHistory);
-    $('#historySensor')?.addEventListener('change', loadHistory);
-    $('#stopImpersonationButton')?.addEventListener('click', stopImpersonation);
     $('#alertStatusFilter')?.addEventListener('change', loadAlerts);
     $('#calendarPrev')?.addEventListener('click', () => changeCalendarMonth(-1));
     $('#calendarNext')?.addEventListener('click', () => changeCalendarMonth(1));
-    $('#adminUserSearch')?.addEventListener('input', renderAdminUsers);
-    $('#adminRefreshButton')?.addEventListener('click', loadAdminUsers);
-    $('#copyProvisioningButton')?.addEventListener('click', copyProvisioningConfiguration);
+    $('#historySensor')?.addEventListener('change', loadHistory);
+    $('#loadHistory')?.addEventListener('click', loadHistory);
+    $('#treatmentAllHives')?.addEventListener('change', toggleTreatmentChecklist);
 
     document.addEventListener('click', handleDelegatedClick);
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('dragover', event => {
+      if (event.target.closest('[data-task-column]')) event.preventDefault();
+    });
+    document.addEventListener('drop', handleTaskDrop);
   }
 
   async function logout() {
+    try { await api('/api/auth/logout.php', { method: 'POST', body: {} }); }
+    finally { location.href = 'login.html'; }
+  }
+
+  async function stopImpersonation() {
     try {
-      await api('/api/auth/logout.php', { method: 'POST', body: {} });
-    } finally {
-      location.href = 'login.html';
+      await api('/api/admin/stop_impersonation.php', { method: 'POST', body: {} });
+      location.href = 'admin.html';
+    } catch (error) {
+      toast(error.message, 'error');
     }
   }
 
@@ -278,23 +327,20 @@
     setLoading(true);
     try {
       if (forceBase) {
-        await Promise.all([loadApiaries(), loadHives(), loadDevices()]);
-        populateAllSelects();
+        await Promise.all([loadHives(), loadDevices()]);
+        populateHiveControls();
       }
       const loaders = {
         overview: loadOverview,
-        apiaries: async () => { await loadApiaries(); renderApiaries(); },
         hives: async () => { await loadHives(); renderHives(); },
         readings: loadReadings,
-        history: loadHistory,
         alerts: loadAlerts,
         production: loadProduction,
         health: loadHealth,
-        queens: loadQueens,
         calendar: loadCalendar,
         notes: loadNotes,
         devices: async () => { await loadDevices(); renderDevices(); },
-        admin: loadAdminUsers,
+        history: loadHistory,
       };
       await loaders[state.currentView]?.();
     } catch (error) {
@@ -302,13 +348,6 @@
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadApiaries() {
-    const data = await api('/api/dashboard/apiaries.php');
-    state.apiaries = data.items || [];
-    renderApiaries();
-    return state.apiaries;
   }
 
   async function loadHives() {
@@ -325,240 +364,149 @@
     return state.devices;
   }
 
-  function populateAllSelects() {
-    const apiaryOptions = state.apiaries.map(item => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('');
-    $$('select[name="apiary_id"]').forEach(select => {
-      const current = select.value;
-      select.innerHTML = `<option value="">Seleccione...</option>${apiaryOptions}`;
-      if (current) select.value = current;
-    });
-    $('#hiveApiaryFilter').innerHTML = `<option value="">Todos los apiarios</option>${apiaryOptions}`;
-
-    const hiveOptions = state.hives.map(item => `<option value="${item.id}">${escapeHtml(item.display_name)} · ${escapeHtml(item.apiary_name)}</option>`).join('');
+  function populateHiveControls() {
+    const options = state.hives.map(item => `<option value="${item.id}">${escapeHtml(item.display_name)}</option>`).join('');
     $$('select[name="hive_id"]').forEach(select => {
-      const optional = select.closest('form')?.dataset.form === 'event' || select.closest('form')?.dataset.form === 'note' || select.closest('form')?.dataset.form === 'device';
+      const formType = select.closest('form')?.dataset.form;
+      const optional = ['event', 'note', 'device'].includes(formType);
       const current = select.value;
-      select.innerHTML = `${optional ? '<option value="">Sin asignar / General</option>' : '<option value="">Seleccione...</option>'}${hiveOptions}`;
+      select.innerHTML = `${optional ? '<option value="">General / Sin asignar</option>' : '<option value="">Seleccione...</option>'}${options}`;
       if (current) select.value = current;
     });
-    $('#readingHive').innerHTML = `<option value="">Todas las colmenas</option>${hiveOptions}`;
+
+    const checklist = $('#treatmentHiveChecklist');
+    if (checklist) {
+      checklist.innerHTML = state.hives.length
+        ? state.hives.map(item => `<label><input type="checkbox" name="hive_ids" value="${item.id}"><span>${escapeHtml(item.display_name)}</span></label>`).join('')
+        : '<div class="empty-state">No hay colmenas disponibles.</div>';
+    }
   }
 
   async function loadOverview() {
     const data = await api('/api/dashboard/overview.php');
     state.overview = data;
-    const s = data.summary || {};
-    $('#sumHives').textContent = s.hives ?? 0;
-    $('#sumApiaries').textContent = `${s.apiaries ?? 0} apiarios`;
-    $('#sumOnline').textContent = s.devices_online ?? 0;
-    $('#sumDevices').textContent = `${s.devices_total ?? 0} registrados`;
-    $('#sumAlerts').textContent = s.open_alerts ?? 0;
-    $('#sumProduction').textContent = formatNumber(s.month_production_kg ?? 0, 1);
+    const summary = data.summary || {};
+    const manualCount = state.hives.filter(item => Number(item.is_manual) === 1).length;
+    const automaticCount = state.hives.length - manualCount;
+    $('#sumHives').textContent = summary.hives ?? 0;
+    $('#sumHiveTypes').textContent = `${automaticCount} con sensores · ${manualCount} manuales`;
+    $('#sumOnline').textContent = summary.devices_online ?? 0;
+    $('#sumDevices').textContent = `${summary.devices_total ?? 0} registrados`;
+    $('#sumAlerts').textContent = summary.open_alerts ?? 0;
     renderOverviewHives(data.hives || []);
     renderOverviewAlerts(data.alerts || []);
     renderOverviewEvents(data.events || []);
-    loadWeather(data.weather_location);
-    await loadOverviewChart('temperature_in');
+    await loadOverviewSeries();
   }
 
   function renderOverviewHives(items) {
     const container = $('#overviewHiveCards');
     if (!items.length) {
-      container.innerHTML = '<div class="empty-state">Todavía no hay colmenas. Cree la primera y luego asigne el dispositivo detectado.</div>';
+      container.innerHTML = '<div class="empty-state">Las colmenas con sensores aparecerán automáticamente cuando llegue la publicación NEW.</div>';
       return;
     }
     container.innerHTML = items.slice(0, 6).map(item => {
-      const online = item.last_seen_at && (Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000);
-      return `<article class="hive-mini">
-        <div class="hive-mini-head"><div><h4>${escapeHtml(item.display_name)}</h4><small>${escapeHtml(item.apiary_name)}</small></div><i class="status-dot ${online ? 'online' : ''}" title="${online ? 'En línea' : 'Sin conexión reciente'}"></i></div>
-        <div class="hive-metrics"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span><span>Peso<b>${formatNumber(item.weight_kg)} kg</b></span></div>
-      </article>`;
+      const online = item.last_seen_at && Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000;
+      return `<article class="hive-mini"><div class="hive-mini-head"><div><h4>${escapeHtml(item.display_name)}</h4><small>${item.device_id ? 'Con sensores' : 'Manual'}</small></div><i class="status-dot ${online ? 'online' : ''}"></i></div><div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div></article>`;
     }).join('');
   }
 
   function renderOverviewAlerts(items) {
     const container = $('#overviewAlerts');
-    if (!items.length) {
-      container.innerHTML = '<div class="empty-state">No hay alertas abiertas.</div>';
-      return;
-    }
-    container.innerHTML = items.map(item => `<article class="alert-item ${escapeHtml(item.severity)}"><i></i><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.hive_name || 'Sistema')} · ${formatDate(item.detected_at, true)}</small></div></article>`).join('');
+    container.innerHTML = items.length
+      ? items.map(item => `<article class="alert-item ${escapeHtml(item.severity)}"><i></i><div><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.hive_name || 'Sistema')} · ${formatDate(item.detected_at, true)}</small></div></article>`).join('')
+      : '<div class="empty-state">No hay alertas abiertas.</div>';
   }
 
   function renderOverviewEvents(items) {
     const container = $('#overviewEvents');
-    if (!items.length) {
-      container.innerHTML = '<div class="empty-state">No hay eventos programados para los próximos 14 días.</div>';
-      return;
-    }
-    container.innerHTML = items.map(item => `<article class="event-chip"><time>${formatDate(item.event_date)}${item.start_time ? ` · ${escapeHtml(item.start_time.slice(0, 5))}` : ''}</time><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.hive_name || 'Todo el apiario')}</small></article>`).join('');
+    container.innerHTML = items.length
+      ? items.map(item => `<article class="event-chip"><time>${formatDate(item.event_date)}${item.start_time ? ` · ${escapeHtml(item.start_time.slice(0, 5))}` : ''}</time><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.hive_name || 'Todo el apiario')}</small></article>`).join('')
+      : '<div class="empty-state">No hay tareas programadas para los próximos 14 días.</div>';
   }
 
-  async function loadOverviewChart(metric) {
-    const to = new Date();
-    const from = new Date(); from.setDate(to.getDate() - 2);
-    const data = await api(`/api/dashboard/readings.php?metric=${encodeURIComponent(metric)}&from=${dateInput(from)}&to=${dateInput(to)}&limit=600`);
-    const items = data.items || [];
-    $('#overviewChartEmpty').style.display = items.length ? 'none' : 'grid';
-    lineChart('overview', 'overviewChart', items.map(item => formatDate(item.measured_at, true)), items.map(item => Number(item.value)), data.metric.unit);
+  async function loadOverviewSeries() {
+    const days = $('#overviewDays')?.value || '2';
+    const data = await api(`/api/dashboard/overview_series.php?metric=${encodeURIComponent(state.overviewMetric)}&days=${encodeURIComponent(days)}`);
+    state.overviewSeries = data;
+    $('#overviewChartTitle').textContent = `${data.metric.label} de todas las colmenas`;
+    renderOverviewSeries();
   }
 
-  async function loadWeather(location) {
-    if (!location || location.latitude === null || location.longitude === null) {
-      $('#weatherPlace').textContent = 'Sin ubicación';
-      $('#weatherText').textContent = 'Agregue latitud y longitud al apiario para ver el pronóstico.';
-      $('#weatherTemp').textContent = '—';
-      $('#weatherHumidity').textContent = '—';
-      $('#weatherWind').textContent = '—';
-      return;
-    }
-    $('#weatherPlace').textContent = location.name;
-    try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`;
-      const response = await fetch(url);
-      const data = await response.json();
-      const current = data.current || {};
-      const code = Number(current.weather_code);
-      const descriptions = { 0: ['Despejado','☀'], 1: ['Mayormente despejado','🌤'], 2: ['Parcialmente nublado','⛅'], 3: ['Nublado','☁'], 45: ['Niebla','🌫'], 48: ['Niebla','🌫'], 51: ['Llovizna','🌦'], 53: ['Llovizna','🌦'], 55: ['Llovizna intensa','🌧'], 61: ['Lluvia','🌧'], 63: ['Lluvia','🌧'], 65: ['Lluvia intensa','🌧'], 80: ['Chaparrones','🌦'], 81: ['Chaparrones','🌧'], 82: ['Chaparrones fuertes','⛈'], 95: ['Tormenta','⛈'] };
-      const desc = descriptions[code] || ['Condiciones variables','◌'];
-      $('#weatherTemp').textContent = formatNumber(current.temperature_2m, 0);
-      $('#weatherHumidity').textContent = `${formatNumber(current.relative_humidity_2m, 0)} %`;
-      $('#weatherWind').textContent = `${formatNumber(current.wind_speed_10m, 0)} km/h`;
-      $('#weatherText').textContent = `${desc[0]} en ${location.locality || location.province || location.name}.`;
-      $('#weatherIcon').textContent = desc[1];
-    } catch {
-      $('#weatherText').textContent = 'No se pudo consultar el pronóstico en este momento.';
-    }
+  function renderOverviewSeries() {
+    if (!state.overviewSeries) return;
+    const search = $('#overviewHiveSearch')?.value || '';
+    const chartData = datasetsFromSeries(state.overviewSeries, search, false);
+    buildLineChart('overview', 'overviewChart', chartData.labels, chartData.datasets, state.overviewSeries.metric.unit, 'overviewChartEmpty');
   }
 
-  function renderApiaries() {
-    const container = $('#apiaryCards');
-    if (!container) return;
-    if (!state.apiaries.length) {
-      container.innerHTML = '<div class="empty-state">No hay apiarios registrados.</div>';
-      return;
-    }
-    container.innerHTML = state.apiaries.map(item => `<article class="content-card">
-      <div class="card-top"><div><small>Apiario</small><h3>${escapeHtml(item.name)}</h3></div><span class="status-badge ${escapeHtml(item.status)}">${item.status === 'active' ? 'Activo' : 'Inactivo'}</span></div>
-      <p>${escapeHtml([item.locality, item.province, item.country].filter(Boolean).join(', ') || 'Ubicación sin completar')}</p>
-      <div class="hive-metrics"><span>Colmenas<b>${item.hive_count ?? 0}</b></span><span>Latitud<b>${item.latitude ?? '—'}</b></span><span>Longitud<b>${item.longitude ?? '—'}</b></span></div>
-      <div class="card-actions"><button class="mini-button" data-edit-apiary="${item.id}">Editar</button><button class="mini-button danger" data-delete-apiary="${item.id}">Eliminar</button></div>
-    </article>`).join('');
+  function queenColor(year) {
+    const digit = Math.abs(Number(year)) % 10;
+    if ([1, 6].includes(digit)) return '#f5f5f5';
+    if ([2, 7].includes(digit)) return '#ffd54f';
+    if ([3, 8].includes(digit)) return '#ff6b6b';
+    if ([4, 9].includes(digit)) return '#49d17d';
+    if ([5, 0].includes(digit)) return '#4da3ff';
+    return '#8d96a3';
   }
 
   function renderHives() {
     const container = $('#hiveCards');
     if (!container) return;
-    const search = ($('#hiveSearch')?.value || '').toLowerCase();
-    const apiary = $('#hiveApiaryFilter')?.value || '';
+    const search = ($('#hiveSearch')?.value || '').trim().toLocaleLowerCase('es');
+    const type = $('#hiveTypeFilter')?.value || '';
     const items = state.hives.filter(item => {
-      const matchesSearch = !search || `${item.display_name} ${item.apiary_name}`.toLowerCase().includes(search);
-      const matchesApiary = !apiary || String(item.apiary_id) === apiary;
-      return matchesSearch && matchesApiary;
+      const manual = Number(item.is_manual) === 1;
+      const typeMatches = !type || (type === 'manual' ? manual : !manual);
+      const searchMatches = !search || `${item.display_name} ${item.notes || ''} ${item.queen_birth_year || ''}`.toLocaleLowerCase('es').includes(search);
+      return typeMatches && searchMatches;
     });
+
     if (!items.length) {
       container.innerHTML = '<div class="empty-state">No hay colmenas para mostrar.</div>';
       return;
     }
+
     container.innerHTML = items.map(item => {
-      const online = item.last_seen_at && (Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000);
-      return `<article class="content-card">
-        <div class="card-top"><div><small>${escapeHtml(item.apiary_name)}</small><h3>${escapeHtml(item.display_name)}</h3></div><i class="status-dot ${online ? 'online' : ''}" title="${online ? 'En línea' : 'Sin conexión reciente'}"></i></div>
-        <p>${item.device_name ? escapeHtml(item.device_name) : 'Sin dispositivo asignado'}</p>
-        <div class="hive-metrics"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span><span>Peso<b>${formatNumber(item.weight_kg)} kg</b></span></div>
-        <div class="card-actions"><button class="mini-button" data-open-reading-hive="${item.id}">Mediciones</button><button class="mini-button" data-edit-hive="${item.id}">Editar</button><button class="mini-button danger" data-delete-hive="${item.id}">Eliminar</button></div>
+      const manual = Number(item.is_manual) === 1;
+      const online = item.last_seen_at && Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000;
+      const queenYear = item.queen_birth_year || 'Sin registrar';
+      const varroa = item.latest_varroa_percentage === null ? '—' : `${formatNumber(item.latest_varroa_percentage, 1)}%`;
+      return `<article class="content-card hive-detail-card">
+        <div class="card-top"><div><small>${manual ? 'Colmena manual' : 'Colmena con sensores'}</small><h3>${escapeHtml(item.display_name)}</h3></div>${manual ? '<span class="status-badge manual">Manual</span>' : `<i class="status-dot ${online ? 'online' : ''}" title="${online ? 'En línea' : 'Sin conexión reciente'}"></i>`}</div>
+        <div class="hive-card-identity"><span class="queen-dot" style="background:${queenColor(item.queen_birth_year)}"></span><div><small>Reina</small><b>${escapeHtml(queenYear)}</b></div><div><small>Tratamientos activos</small><b>${Number(item.active_treatment_count || 0)}</b></div><div><small>Última varroa</small><b>${varroa}</b></div></div>
+        ${manual ? '<div class="manual-hive-notice">Sin sensores: disponible para reina, sanidad, producción y observaciones manuales.</div>' : `<div class="hive-metrics two"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span></div>`}
+        <p class="hive-notes-preview">${escapeHtml(item.notes || 'Sin observaciones.')}</p>
+        <div class="card-actions"><button class="mini-button" data-edit-hive="${item.id}">Editar nombre, reina y observaciones</button>${manual ? `<button class="mini-button danger" data-delete-hive="${item.id}">Eliminar manual</button>` : ''}</div>
       </article>`;
     }).join('');
   }
 
   async function loadReadings() {
-    const metric = $('#readingMetric').value;
-    const hive = $('#readingHive').value;
-    const from = $('#readingFrom').value;
-    const to = $('#readingTo').value;
-    const params = new URLSearchParams({ metric, from, to, limit: '3000' });
-    if (hive) params.set('hive_id', hive);
-    const data = await api(`/api/dashboard/readings.php?${params}`);
-    state.readingItems = data.items || [];
-    $('#readingChartTitle').textContent = data.metric.label;
-    $('#readingUnit').textContent = data.metric.unit;
-    $('#readingChartEmpty').style.display = state.readingItems.length ? 'none' : 'grid';
-    lineChart('readings', 'readingChart', state.readingItems.map(item => formatDate(item.measured_at, true)), state.readingItems.map(item => Number(item.value)), data.metric.unit);
-    $('#readingTable').innerHTML = state.readingItems.length ? state.readingItems.slice().reverse().map(item => `<tr><td>${formatDate(item.measured_at, true)}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td>${escapeHtml(item.device_name || 'Dispositivo')}</td><td><span class="value-badge">${formatNumber(item.value, 2)} ${escapeHtml(data.metric.unit)}</span></td></tr>`).join('') : '<tr><td colspan="4">Sin mediciones en el rango seleccionado.</td></tr>';
-  }
+    const days = $('#readingDays')?.value || '7';
+    const [temperature, humidity] = await Promise.all([
+      api(`/api/dashboard/overview_series.php?metric=temperature_in&days=${encodeURIComponent(days)}`),
+      api(`/api/dashboard/overview_series.php?metric=humidity_in&days=${encodeURIComponent(days)}`),
+    ]);
 
-  function exportReadingsCsv() {
-    if (!state.readingItems.length) {
-      toast('No hay mediciones para exportar.', 'error');
-      return;
-    }
-    const metric = $('#readingMetric').value;
-    const rows = [['fecha','colmena','dispositivo',metric], ...state.readingItems.map(item => [item.measured_at, item.hive_name || '', item.device_name || '', item.value])];
-    downloadCsv(`mellifera_${metric}_${dateInput(new Date())}.csv`, rows);
-  }
+    $('#measurementTemperature').textContent = formatNumber(temperature.stats.average, 1);
+    $('#measurementTemperatureRange').textContent = temperature.stats.average === null ? 'Sin datos' : `${formatNumber(temperature.stats.minimum, 1)} a ${formatNumber(temperature.stats.maximum, 1)} °C · ${temperature.stats.hive_count} colmenas`;
+    $('#measurementHumidity').textContent = formatNumber(humidity.stats.average, 1);
+    $('#measurementHumidityRange').textContent = humidity.stats.average === null ? 'Sin datos' : `${formatNumber(humidity.stats.minimum, 1)} a ${formatNumber(humidity.stats.maximum, 1)} % · ${humidity.stats.hive_count} colmenas`;
 
-  async function loadHistory() {
-    const from = $('#historyFrom')?.value || '';
-    const to = $('#historyTo')?.value || '';
-    const sensor = $('#historySensor')?.value || '';
-    const params = new URLSearchParams({ limit: '500' });
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-    if (sensor) params.set('sensor', sensor);
-
-    const data = await api(`/api/history.php?${params}`);
-    state.historyItems = data.items || [];
-
-    const table = $('#historyTable');
-    if (!table) return;
-    if (!state.historyItems.length) {
-      table.innerHTML = '<tr><td colspan="6">Todavía no hay publicaciones recibidas.</td></tr>';
-      return;
-    }
-
-    table.innerHTML = state.historyItems.map(item => {
-      const value = item.measurement_num !== null && item.measurement_num !== undefined
-        ? formatNumber(item.measurement_num, 3)
-        : escapeHtml(item.measurement_text || '—');
-      const statusText = {
-        stored: 'Guardado',
-        hive_created: 'Colmena creada',
-        hive_exists: 'Colmena existente',
-        pending_child: 'Pendiente de alta',
-      }[item.processing_status] || item.processing_status;
-      return `<tr>
-        <td>${formatDate(item.received_at, true)}</td>
-        <td><b>${escapeHtml(item.hive_name || 'Sin colmena')}</b></td>
-        <td>${escapeHtml(item.device_name || 'Dispositivo')}</td>
-        <td><span class="sensor-badge">${escapeHtml(item.sensor || '—')}</span></td>
-        <td><span class="value-badge">${value}</span></td>
-        <td><span class="status-badge ${escapeHtml(item.processing_status)}">${escapeHtml(statusText)}</span></td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function stopImpersonation() {
-    setLoading(true);
-    try {
-      await api('/api/admin/stop_impersonation.php', { method: 'POST', body: {} });
-      location.replace('admin.html');
-    } catch (error) {
-      toast(error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
+    const tempChart = datasetsFromSeries(temperature, '', true);
+    const humidityChart = datasetsFromSeries(humidity, '', true);
+    buildLineChart('temperatureGeneral', 'temperatureGeneralChart', tempChart.labels, tempChart.datasets, '°C', 'temperatureGeneralEmpty');
+    buildLineChart('humidityGeneral', 'humidityGeneralChart', humidityChart.labels, humidityChart.datasets, '%', 'humidityGeneralEmpty');
   }
 
   async function loadAlerts() {
-    const status = $('#alertStatusFilter')?.value ?? 'open';
-    const query = status ? `&status=${encodeURIComponent(status)}` : '';
-    const data = await api(`/api/manage/records.php?resource=alerts&limit=500${query}`);
-    const container = $('#alertBoard');
-    if (!data.items.length) {
-      container.innerHTML = '<div class="empty-state">No hay alertas en este estado.</div>';
-      return;
-    }
-    container.innerHTML = data.items.map(item => `<article class="alert-card ${escapeHtml(item.severity)}"><span class="alert-card-icon">!</span><div><h4>${escapeHtml(item.title)}</h4><p>${escapeHtml(item.message)}</p><small>${escapeHtml(item.hive_name || 'Sistema')} · ${formatDate(item.detected_at, true)} · ${escapeHtml(item.severity)}</small></div><div class="alert-actions">${item.status === 'open' ? `<button class="mini-button" data-alert-action="acknowledged" data-id="${item.id}">Reconocer</button>` : ''}${item.status !== 'closed' ? `<button class="mini-button" data-alert-action="closed" data-id="${item.id}">Cerrar</button>` : ''}</div></article>`).join('');
+    const status = $('#alertStatusFilter')?.value || '';
+    const data = await api(`/api/manage/records.php?resource=alerts&limit=500${status ? `&status=${encodeURIComponent(status)}` : ''}`);
+    const board = $('#alertBoard');
+    board.innerHTML = data.items.length
+      ? data.items.map(item => `<article class="alert-card ${escapeHtml(item.severity)}"><div class="alert-marker">!</div><div><div class="card-top"><div><small>${escapeHtml(item.hive_name || 'Sistema')} · ${formatDate(item.detected_at, true)}</small><h3>${escapeHtml(item.title)}</h3></div><span class="status-badge ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></div><p>${escapeHtml(item.message)}</p></div><div class="alert-actions">${item.status === 'open' ? `<button class="mini-button" data-alert-action="acknowledged" data-id="${item.id}">Reconocer</button>` : ''}${item.status !== 'closed' ? `<button class="mini-button" data-alert-action="closed" data-id="${item.id}">Cerrar</button>` : ''}</div></article>`).join('')
+      : '<div class="empty-state">No hay alertas para este estado.</div>';
   }
 
   async function loadProduction() {
@@ -567,66 +515,53 @@
     const total = items.reduce((sum, item) => sum + Number(item.kilos || 0), 0);
     $('#productionTotal').textContent = formatNumber(total, 1);
     $('#productionCount').textContent = `${items.length} registros`;
-    $('#productionTable').innerHTML = items.length ? items.map(item => `<tr><td>${formatDate(item.produced_on)}</td><td>${escapeHtml(item.hive_name)}</td><td>${formatNumber(item.kilos, 2)} kg</td><td>${escapeHtml(item.harvest_type || '—')}</td><td>${escapeHtml(item.notes || '—')}</td><td><button class="mini-button danger" data-delete-record="production" data-id="${item.id}">Eliminar</button></td></tr>`).join('') : '<tr><td colspan="6">Todavía no hay registros de producción.</td></tr>';
+    $('#productionTable').innerHTML = items.length
+      ? items.map(item => `<tr><td>${formatDate(item.produced_on)}</td><td>${escapeHtml(item.hive_name)}</td><td>${formatNumber(item.kilos, 2)} kg</td><td>${escapeHtml(item.harvest_type || '—')}</td><td>${escapeHtml(item.notes || '—')}</td><td><button class="mini-button danger" data-delete-record="production" data-id="${item.id}">Eliminar</button></td></tr>`).join('')
+      : '<tr><td colspan="6">Todavía no hay registros de producción.</td></tr>';
+
     const monthly = new Map();
     items.forEach(item => {
       const key = String(item.produced_on).slice(0, 7);
       monthly.set(key, (monthly.get(key) || 0) + Number(item.kilos || 0));
     });
     const labels = [...monthly.keys()].sort();
-    $('#productionChartEmpty').style.display = labels.length ? 'none' : 'grid';
-    barChart('production', 'productionChart', labels.map(key => new Date(`${key}-01T00:00:00`).toLocaleDateString('es-AR', { month: 'short', year: '2-digit' })), labels.map(key => monthly.get(key)), 'kg');
+    buildBarChart('production', 'productionChart', labels.map(key => new Date(`${key}-01T00:00:00`).toLocaleDateString('es-AR', { month: 'short', year: '2-digit' })), labels.map(key => monthly.get(key)), 'kg', 'productionChartEmpty');
   }
 
   async function loadHealth() {
     const [treatments, varroa] = await Promise.all([
-      api('/api/manage/records.php?resource=treatments&limit=500'),
-      api('/api/manage/records.php?resource=varroa&limit=500'),
+      api('/api/manage/records.php?resource=treatments&limit=1000'),
+      api('/api/manage/records.php?resource=varroa&limit=1000'),
     ]);
-    $('#treatmentTable').innerHTML = treatments.items.length ? treatments.items.map(item => {
-      const active = !item.removed_on;
-      return `<tr><td>${escapeHtml(item.hive_name)}</td><td>${escapeHtml(item.product_name)}</td><td>${formatDate(item.started_on)}</td><td>${formatDate(item.removed_on || item.expected_removal_on)}</td><td><span class="status-badge ${active ? 'open' : 'active'}">${active ? 'En curso' : 'Finalizado'}</span></td><td><button class="mini-button danger" data-delete-record="treatments" data-id="${item.id}">Eliminar</button></td></tr>`;
-    }).join('') : '<tr><td colspan="6">No hay tratamientos registrados.</td></tr>';
+
+    $('#treatmentTable').innerHTML = treatments.items.length
+      ? treatments.items.map(item => {
+        const active = !item.removed_on;
+        return `<tr><td>${escapeHtml(item.hive_name)}</td><td>${escapeHtml(item.product_name)}</td><td>${formatDate(item.started_on)}</td><td>${formatDate(item.removed_on || item.expected_removal_on)}</td><td><span class="status-badge ${active ? 'open' : 'active'}">${active ? 'En curso' : 'Finalizado'}</span></td><td><button class="mini-button danger" data-delete-record="treatments" data-id="${item.id}">Eliminar</button></td></tr>`;
+      }).join('')
+      : '<tr><td colspan="6">No hay tratamientos registrados.</td></tr>';
 
     const latestByHive = new Map();
     varroa.items.forEach(item => { if (!latestByHive.has(item.hive_id)) latestByHive.set(item.hive_id, item); });
     const latest = [...latestByHive.values()];
-    $('#varroaCards').innerHTML = latest.length ? latest.map(item => {
-      const pct = Number(item.percentage);
-      const cls = pct >= 3 ? 'bad' : pct >= 1.5 ? 'warn' : '';
-      return `<article class="stack-item"><div class="varroa-meter"><div><b>${escapeHtml(item.hive_name)}</b><small>${formatDate(item.measured_on)} · ${escapeHtml(item.method || 'Método no indicado')}</small></div><div class="varroa-bar"><i class="${cls}" style="width:${Math.min(100, pct * 20)}%"></i></div><strong>${formatNumber(pct, 1)}%</strong><button class="mini-button danger" data-delete-record="varroa" data-id="${item.id}">×</button></div></article>`;
-    }).join('') : '<div class="empty-state">No hay conteos de varroa registrados.</div>';
-  }
-
-  function queenColor(year, explicit) {
-    if (explicit) return explicit.toLowerCase();
-    const d = Math.abs(Number(year)) % 10;
-    if ([1,6].includes(d)) return '#f5f5f5';
-    if ([2,7].includes(d)) return '#ffd54f';
-    if ([3,8].includes(d)) return '#ff6b6b';
-    if ([4,9].includes(d)) return '#49d17d';
-    if ([5,0].includes(d)) return '#4da3ff';
-    return '#8d96a3';
-  }
-
-  async function loadQueens() {
-    const data = await api('/api/manage/records.php?resource=queens&limit=500');
-    const container = $('#queenCards');
-    if (!data.items.length) {
-      container.innerHTML = '<div class="empty-state">No hay reinas registradas.</div>';
-      return;
-    }
-    const colorNames = { blanco: '#f5f5f5', amarillo: '#ffd54f', rojo: '#ff6b6b', verde: '#49d17d', azul: '#4da3ff' };
-    container.innerHTML = data.items.map(item => {
-      const color = colorNames[String(item.marking_color || '').toLowerCase()] || queenColor(item.birth_year, null);
-      return `<article class="content-card queen-card"><span class="queen-color" style="background:${color}"></span><div><div class="card-top"><div><small>${escapeHtml(item.hive_name)}</small><h3>Reina ${item.birth_year || 'sin año'}</h3></div><span class="status-badge ${item.status === 'active' ? 'active' : ''}">${escapeHtml(item.status)}</span></div><p>Introducida ${formatDate(item.introduced_on)} · ${escapeHtml(item.origin || 'Origen no indicado')}</p><div class="card-actions"><button class="mini-button danger" data-delete-record="queens" data-id="${item.id}">Eliminar</button></div></div></article>`;
-    }).join('');
+    $('#varroaCards').innerHTML = latest.length
+      ? latest.map(item => {
+        const percentage = Number(item.percentage);
+        const cls = percentage >= 3 ? 'bad' : percentage >= 1.5 ? 'warn' : '';
+        return `<article class="stack-item"><div class="varroa-meter"><div><b>${escapeHtml(item.hive_name)}</b><small>${formatDate(item.measured_on)} · ${escapeHtml(item.method || 'Método no indicado')}</small></div><div class="varroa-bar"><i class="${cls}" style="width:${Math.min(100, percentage * 20)}%"></i></div><strong>${formatNumber(percentage, 1)}%</strong><button class="mini-button danger" data-delete-record="varroa" data-id="${item.id}">×</button></div></article>`;
+      }).join('')
+      : '<div class="empty-state">No hay conteos de varroa registrados.</div>';
   }
 
   async function loadCalendar() {
     const month = `${state.calendarDate.getFullYear()}-${String(state.calendarDate.getMonth() + 1).padStart(2, '0')}`;
-    const data = await api(`/api/manage/records.php?resource=calendar&month=${month}&limit=500`);
-    renderCalendar(data.items || []);
+    const [monthData, allData] = await Promise.all([
+      api(`/api/manage/records.php?resource=calendar&month=${month}&limit=500`),
+      api('/api/manage/records.php?resource=calendar&limit=1000'),
+    ]);
+    state.calendarItems = allData.items || [];
+    renderCalendar(monthData.items || []);
+    renderKanban(state.calendarItems);
   }
 
   function renderCalendar(items) {
@@ -634,25 +569,42 @@
     $('#calendarTitle').textContent = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     const first = new Date(date.getFullYear(), date.getMonth(), 1);
     const start = new Date(first);
-    const mondayIndex = (first.getDay() + 6) % 7;
-    start.setDate(first.getDate() - mondayIndex);
+    start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
     const eventsByDate = new Map();
     items.forEach(item => {
       if (!eventsByDate.has(item.event_date)) eventsByDate.set(item.event_date, []);
       eventsByDate.get(item.event_date).push(item);
     });
-    const weekdays = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(day => `<div class="calendar-weekday">${day}</div>`).join('');
+
+    const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => `<div class="calendar-weekday">${day}</div>`).join('');
     let days = '';
-    for (let i = 0; i < 42; i++) {
-      const current = new Date(start); current.setDate(start.getDate() + i);
+    for (let index = 0; index < 42; index++) {
+      const current = new Date(start); current.setDate(start.getDate() + index);
       const key = dateInput(current);
-      const sameMonth = current.getMonth() === date.getMonth();
-      const today = key === dateInput(new Date());
       const dayEvents = eventsByDate.get(key) || [];
-      days += `<div class="calendar-day ${sameMonth ? '' : 'other'} ${today ? 'today' : ''}" data-calendar-date="${key}"><span>${current.getDate()}</span>${dayEvents.slice(0, 3).map(event => `<b class="calendar-event-pill" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</b>`).join('')}</div>`;
+      days += `<div class="calendar-day ${current.getMonth() === date.getMonth() ? '' : 'other'} ${key === dateInput(new Date()) ? 'today' : ''}" data-calendar-date="${key}"><span>${current.getDate()}</span>${dayEvents.slice(0, 3).map(event => `<b class="calendar-event-pill" title="${escapeHtml(event.title)}">${escapeHtml(event.title)}</b>`).join('')}</div>`;
     }
     $('#calendarGrid').innerHTML = weekdays + days;
-    $('#calendarEvents').innerHTML = items.length ? items.map(item => `<article class="stack-item"><div><b>${escapeHtml(item.title)}</b><small>${formatDate(item.event_date)}${item.start_time ? ` · ${item.start_time.slice(0, 5)}` : ''} · ${escapeHtml(item.hive_name || 'Todo el apiario')}</small></div><button class="mini-button danger" data-delete-record="calendar" data-id="${item.id}">×</button></article>`).join('') : '<div class="empty-state">No hay eventos este mes.</div>';
+    $('#calendarEvents').innerHTML = items.length
+      ? items.map(item => `<article class="stack-item"><div><b>${escapeHtml(item.title)}</b><small>${formatDate(item.event_date)}${item.start_time ? ` · ${item.start_time.slice(0, 5)}` : ''} · ${escapeHtml(item.hive_name || 'Todo el apiario')}</small></div><button class="mini-button danger" data-delete-record="calendar" data-id="${item.id}">×</button></article>`).join('')
+      : '<div class="empty-state">No hay eventos este mes.</div>';
+  }
+
+  function renderKanban(items) {
+    const groups = { pending: [], in_progress: [], done: [] };
+    items.forEach(item => {
+      const status = groups[item.task_status] ? item.task_status : (Number(item.completed) ? 'done' : 'pending');
+      groups[status].push(item);
+    });
+
+    const targets = { pending: '#pendingTasks', in_progress: '#progressTasks', done: '#doneTasks' };
+    const counters = { pending: '#pendingTaskCount', in_progress: '#progressTaskCount', done: '#doneTaskCount' };
+    Object.entries(groups).forEach(([status, rows]) => {
+      $(counters[status]).textContent = rows.length;
+      $(targets[status]).innerHTML = rows.length
+        ? rows.map(item => `<article class="kanban-card" draggable="true" data-task-id="${item.id}"><small>${formatDate(item.event_date)} · ${escapeHtml(item.hive_name || 'Todo el apiario')}</small><b>${escapeHtml(item.title)}</b><p>${escapeHtml(item.notes || item.event_type || '')}</p><div class="kanban-actions">${status !== 'pending' ? `<button class="mini-button" data-task-move="pending" data-id="${item.id}">Pendiente</button>` : ''}${status !== 'in_progress' ? `<button class="mini-button" data-task-move="in_progress" data-id="${item.id}">Haciéndose</button>` : ''}${status !== 'done' ? `<button class="mini-button" data-task-move="done" data-id="${item.id}">Terminar</button>` : ''}<button class="mini-button danger" data-delete-record="calendar" data-id="${item.id}">×</button></div></article>`).join('')
+        : '<div class="kanban-empty">Sin tareas</div>';
+    });
   }
 
   async function changeCalendarMonth(offset) {
@@ -660,92 +612,75 @@
     await loadCalendar();
   }
 
+  async function moveTask(id, status) {
+    const item = state.calendarItems.find(row => String(row.id) === String(id));
+    if (!item) return;
+    await api('/api/manage/records.php?resource=calendar', {
+      method: 'PUT',
+      body: {
+        id: item.id,
+        hive_id: item.hive_id || '',
+        event_date: item.event_date,
+        start_time: item.start_time || '',
+        title: item.title,
+        event_type: item.event_type,
+        notes: item.notes || '',
+        task_status: status,
+      },
+    });
+    await loadCalendar();
+  }
+
+  function handleDragStart(event) {
+    const card = event.target.closest('[data-task-id]');
+    if (!card || !event.dataTransfer) return;
+    event.dataTransfer.setData('text/plain', card.dataset.taskId);
+    event.dataTransfer.effectAllowed = 'move';
+  }
+
+  async function handleTaskDrop(event) {
+    const column = event.target.closest('[data-task-column]');
+    if (!column || !event.dataTransfer) return;
+    event.preventDefault();
+    const id = event.dataTransfer.getData('text/plain');
+    if (!id) return;
+    try { await moveTask(id, column.dataset.taskColumn); }
+    catch (error) { toast(error.message, 'error'); }
+  }
+
   async function loadNotes() {
-    const data = await api('/api/manage/records.php?resource=notes&limit=500');
-    const container = $('#noteGrid');
-    if (!data.items.length) {
-      container.innerHTML = '<div class="empty-state">Todavía no hay anotaciones.</div>';
-      return;
-    }
-    container.innerHTML = data.items.map(item => `<article class="note-card ${Number(item.pinned) ? 'pinned' : ''}"><small>${escapeHtml(item.hive_name || 'General')} · ${formatDate(item.created_at, true)}</small><h3>${escapeHtml(item.title || 'Anotación')}</h3><p>${escapeHtml(item.note_text)}</p><div class="card-actions"><button class="mini-button danger" data-delete-record="notes" data-id="${item.id}">Eliminar</button></div></article>`).join('');
+    const data = await api('/api/manage/records.php?resource=notes&limit=1000');
+    $('#noteGrid').innerHTML = data.items.length
+      ? data.items.map(item => `<article class="note-card ${Number(item.pinned) ? 'pinned' : ''}"><small>${escapeHtml(item.hive_name || 'General')} · ${formatDate(item.created_at, true)}</small><h3>${escapeHtml(item.title || 'Anotación')}</h3><p>${escapeHtml(item.note_text)}</p><div class="card-actions"><button class="mini-button danger" data-delete-record="notes" data-id="${item.id}">Eliminar</button></div></article>`).join('')
+      : '<div class="empty-state">Todavía no hay anotaciones.</div>';
   }
 
   function renderDevices() {
     const table = $('#deviceTable');
     if (!table) return;
-    if (!state.devices.length) {
-      table.innerHTML = '<tr><td colspan="7">No hay dispositivos provisionados.</td></tr>';
-      return;
-    }
-    table.innerHTML = state.devices.map(item => `<tr><td>${item.device_type === 'mother' ? 'Madre' : 'Hijo'}</td><td><b>${escapeHtml(item.display_name || 'Dispositivo')}</b></td><td>${escapeHtml(item.parent_name || '—')}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td><span class="status-badge ${item.status === 'unassigned' ? 'unassigned' : item.is_online ? 'active' : ''}">${item.is_online ? 'En línea' : escapeHtml(item.status)}</span></td><td>${formatDate(item.last_seen_at, true)}</td><td>${item.device_type === 'child' ? `<button class="mini-button" data-assign-device="${item.id}">Asignar</button>` : ''}</td></tr>`).join('');
+    table.innerHTML = state.devices.length
+      ? state.devices.map(item => `<tr><td>${item.device_type === 'mother' ? 'Madre' : 'Hijo'}</td><td><b>${escapeHtml(item.display_name || 'Dispositivo')}</b></td><td>${escapeHtml(item.parent_name || '—')}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td><span class="status-badge ${item.status === 'unassigned' ? 'unassigned' : item.is_online ? 'active' : ''}">${item.is_online ? 'En línea' : escapeHtml(item.status)}</span></td><td>${formatDate(item.last_seen_at, true)}</td><td>${item.device_type === 'child' ? `<button class="mini-button" data-edit-device="${item.id}">Editar</button>` : ''}</td></tr>`).join('')
+      : '<tr><td colspan="7">No hay dispositivos provisionados.</td></tr>';
   }
 
-  async function loadAdminUsers() {
-    if (state.user?.role !== 'admin') return;
-    const data = await api('/api/admin/users.php');
-    state.adminUsers = data.items || [];
-    populateAdminUserSelect();
-    renderAdminUsers();
+  async function loadHistory() {
+    const params = new URLSearchParams({ limit: '1000' });
+    if ($('#historyFrom')?.value) params.set('from', $('#historyFrom').value);
+    if ($('#historyTo')?.value) params.set('to', $('#historyTo').value);
+    if (($('#historySensor')?.value || '').trim()) params.set('sensor', $('#historySensor').value.trim().toUpperCase());
+    const data = await api(`/api/history.php?${params}`);
+    $('#historyTable').innerHTML = data.items.length
+      ? data.items.map(item => `<tr><td>${formatDate(item.received_at, true)}</td><td>${escapeHtml(item.hive_name || 'Pendiente')}</td><td>${escapeHtml(item.device_name || 'Sin vincular')}</td><td><b>${escapeHtml(item.sensor || '—')}</b></td><td>${escapeHtml(item.measurement_text ?? item.measurement_num ?? '—')}</td><td><span class="status-badge ${escapeHtml(item.processing_status)}">${escapeHtml(item.processing_status)}</span><small class="history-message">${escapeHtml(item.processing_message || '')}</small></td></tr>`).join('')
+      : '<tr><td colspan="6">No hay publicaciones para los filtros seleccionados.</td></tr>';
   }
 
-  function populateAdminUserSelect() {
-    const select = $('#adminMotherUser');
-    if (!select) return;
-    const current = select.value;
-    const users = state.adminUsers.filter(item => item.role !== 'admin' && item.status === 'active');
-    select.innerHTML = `<option value="">Seleccione...</option>${users.map(item => `<option value="${item.id}">${escapeHtml(item.name)} · ${escapeHtml(item.email)}</option>`).join('')}`;
-    if (current && users.some(item => String(item.id) === String(current))) select.value = current;
-  }
-
-  function renderAdminUsers() {
-    const table = $('#adminUserTable');
-    if (!table || state.user?.role !== 'admin') return;
-    const search = ($('#adminUserSearch')?.value || '').trim().toLocaleLowerCase('es');
-    const items = state.adminUsers.filter(item => {
-      if (!search) return true;
-      return [item.name, item.email, item.internal_code, item.role, item.status]
-        .some(value => String(value || '').toLocaleLowerCase('es').includes(search));
+  function toggleTreatmentChecklist() {
+    const disabled = $('#treatmentAllHives')?.checked || false;
+    $$('#treatmentHiveChecklist input[type="checkbox"]').forEach(input => {
+      input.disabled = disabled;
+      if (disabled) input.checked = false;
     });
-
-    if (!items.length) {
-      table.innerHTML = '<tr><td colspan="7">No hay usuarios que coincidan con la búsqueda.</td></tr>';
-      return;
-    }
-
-    table.innerHTML = items.map(item => {
-      const canProvision = item.role !== 'admin' && item.status === 'active';
-      const nextStatus = item.status === 'active' ? 'blocked' : 'active';
-      const statusLabel = item.status === 'active' ? 'Bloquear' : 'Activar';
-      return `<tr>
-        <td><div class="admin-user-main"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.role)}</small></div></td>
-        <td>${escapeHtml(item.email)}</td>
-        <td><div class="admin-code-cell"><code>${escapeHtml(item.internal_code)}</code><button class="mini-button" data-copy-user-code="${item.id}" type="button">Copiar</button></div></td>
-        <td><span class="status-badge ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
-        <td><div class="admin-device-counts"><span>${Number(item.mothers_count || 0)} madres</span><span>${Number(item.children_count || 0)} hijos</span></div></td>
-        <td>${formatDate(item.last_seen_at, true)}</td>
-        <td><div class="admin-actions">${canProvision ? `<button class="mini-button" data-admin-provision-user="${item.id}" type="button">Nueva madre</button>` : ''}${item.role === 'admin' ? '' : `<button class="mini-button ${nextStatus === 'blocked' ? 'danger' : ''}" data-admin-user-status="${nextStatus}" data-id="${item.id}" type="button">${statusLabel}</button>`}</div></td>
-      </tr>`;
-    }).join('');
-  }
-
-  function showProvisioningConfiguration(provisioning) {
-    state.adminProvisioning = provisioning || null;
-    const panel = $('#adminProvisionResult');
-    const pre = $('#adminProvisioningJson');
-    if (!panel || !pre || !state.adminProvisioning) return;
-    pre.textContent = JSON.stringify(state.adminProvisioning, null, 2);
-    panel.removeAttribute('hidden');
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  async function copyProvisioningConfiguration() {
-    if (!state.adminProvisioning) return;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(state.adminProvisioning, null, 2));
-      toast('Configuración copiada.');
-    } catch {
-      toast('No se pudo copiar automáticamente.', 'error');
-    }
+    $('#treatmentHiveChecklist')?.classList.toggle('disabled', disabled);
   }
 
   function openDialog(id, preset = {}) {
@@ -760,6 +695,7 @@
         if (field) field.value = value ?? '';
       });
     }
+    if (id === 'treatmentDialog') toggleTreatmentChecklist();
     dialog.showModal();
   }
 
@@ -768,42 +704,29 @@
     const form = event.currentTarget;
     const type = form.dataset.form;
     const data = Object.fromEntries(new FormData(form).entries());
-    $$('input[type="checkbox"]', form).forEach(input => { data[input.name] = input.checked ? 1 : 0; });
-
-    if (type === 'admin-mother') {
-      setLoading(true);
-      try {
-        const result = await api('/api/admin/mothers.php', { method: 'POST', body: data });
-        form.closest('dialog').close();
-        showProvisioningConfiguration(result.provisioning);
-        toast('Madre provisionada correctamente.');
-        await loadAdminUsers();
-      } catch (error) {
-        toast(error.message, 'error');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
+    $$('input[type="checkbox"]', form).forEach(input => {
+      if (input.name !== 'hive_ids') data[input.name] = input.checked ? 1 : 0;
+    });
 
     let endpoint = '';
     let method = 'POST';
-
-    if (type === 'apiary') { endpoint = '/api/dashboard/apiaries.php'; method = data.id ? 'PUT' : 'POST'; }
     if (type === 'hive') { endpoint = '/api/dashboard/hives.php'; method = data.id ? 'PUT' : 'POST'; }
     if (type === 'device') { endpoint = '/api/dashboard/devices.php'; method = 'PUT'; }
-
-    const resourceMap = { production: 'production', treatment: 'treatments', varroa: 'varroa', queen: 'queens', event: 'calendar', note: 'notes' };
+    const resourceMap = { production: 'production', treatment: 'treatments', varroa: 'varroa', event: 'calendar', note: 'notes' };
     if (resourceMap[type]) endpoint = `/api/manage/records.php?resource=${resourceMap[type]}`;
-
     if (!endpoint) return;
+
+    if (type === 'treatment') {
+      data.hive_ids = $$('#treatmentHiveChecklist input[name="hive_ids"]:checked').map(input => Number(input.value));
+    }
+
     setLoading(true);
     try {
-      await api(endpoint, { method, body: data });
+      const result = await api(endpoint, { method, body: data });
       form.closest('dialog').close();
-      toast('Registro guardado correctamente.');
-      await Promise.all([loadApiaries(), loadHives(), loadDevices()]);
-      populateAllSelects();
+      toast(type === 'treatment' && result.created_count ? `Tratamiento aplicado a ${result.created_count} colmenas.` : 'Registro guardado correctamente.');
+      await Promise.all([loadHives(), loadDevices()]);
+      populateHiveControls();
       await refreshCurrentView(false);
     } catch (error) {
       toast(error.message, 'error');
@@ -813,117 +736,88 @@
   }
 
   async function handleDelegatedClick(event) {
-    const closeDialog = event.target.closest('[data-close-dialog]');
-    if (closeDialog) {
-      closeDialog.closest('dialog')?.close();
+    const close = event.target.closest('[data-close-dialog]');
+    if (close) {
+      close.closest('dialog')?.close();
       return;
     }
-    const copyUserCode = event.target.closest('[data-copy-user-code]');
-    if (copyUserCode) {
-      const item = state.adminUsers.find(row => String(row.id) === String(copyUserCode.dataset.copyUserCode));
-      if (!item) return;
-      try {
-        await navigator.clipboard.writeText(item.internal_code);
-        toast('Código único copiado.');
-      } catch {
-        toast('No se pudo copiar automáticamente.', 'error');
+
+    const editHive = event.target.closest('[data-edit-hive]');
+    if (editHive) {
+      const item = state.hives.find(row => String(row.id) === editHive.dataset.editHive);
+      if (item) {
+        $('#hiveDialogTitle').textContent = 'Editar colmena';
+        openDialog('hiveDialog', {
+          id: item.id,
+          display_name: item.display_name,
+          queen_birth_year: item.queen_birth_year || '',
+          notes: item.notes || '',
+        });
       }
       return;
     }
-    const provisionUser = event.target.closest('[data-admin-provision-user]');
-    if (provisionUser) {
-      openDialog('motherProvisionDialog', { user_id: provisionUser.dataset.adminProvisionUser });
-      return;
-    }
-    const statusAction = event.target.closest('[data-admin-user-status]');
-    if (statusAction) {
-      const status = statusAction.dataset.adminUserStatus;
-      const label = status === 'blocked' ? 'bloquear' : 'activar';
-      if (!confirm(`¿Confirma ${label} este usuario?`)) return;
+
+    const deleteHive = event.target.closest('[data-delete-hive]');
+    if (deleteHive) {
+      if (!confirm('¿Eliminar esta colmena manual y sus registros relacionados?')) return;
       try {
-        await api('/api/admin/users.php', { method: 'PUT', body: { id: statusAction.dataset.id, status } });
-        toast('Estado del usuario actualizado.');
-        await loadAdminUsers();
-      } catch (error) {
-        toast(error.message, 'error');
-      }
+        await api('/api/dashboard/hives.php', { method: 'DELETE', body: { id: deleteHive.dataset.deleteHive } });
+        toast('Colmena manual eliminada.');
+        await loadHives();
+        populateHiveControls();
+      } catch (error) { toast(error.message, 'error'); }
       return;
     }
-    const apiaryEdit = event.target.closest('[data-edit-apiary]');
-    if (apiaryEdit) {
-      const item = state.apiaries.find(row => String(row.id) === apiaryEdit.dataset.editApiary);
-      if (item) openDialog('apiaryDialog', item);
+
+    const editDevice = event.target.closest('[data-edit-device]');
+    if (editDevice) {
+      const item = state.devices.find(row => String(row.id) === editDevice.dataset.editDevice);
+      if (item) openDialog('deviceDialog', { id: item.id, display_name: item.display_name || '', hive_id: item.hive_id || '' });
       return;
     }
-    const hiveEdit = event.target.closest('[data-edit-hive]');
-    if (hiveEdit) {
-      const item = state.hives.find(row => String(row.id) === hiveEdit.dataset.editHive);
-      if (item) openDialog('hiveDialog', item);
-      return;
-    }
-    const readHive = event.target.closest('[data-open-reading-hive]');
-    if (readHive) {
-      switchView('readings');
-      $('#readingHive').value = readHive.dataset.openReadingHive;
-      await loadReadings();
-      return;
-    }
-    const assign = event.target.closest('[data-assign-device]');
-    if (assign) {
-      const item = state.devices.find(row => String(row.id) === assign.dataset.assignDevice);
-      if (item) openDialog('deviceDialog', { id: item.id, hive_id: item.hive_id || '', display_name: item.display_name || '' });
-      return;
-    }
+
     const alertAction = event.target.closest('[data-alert-action]');
     if (alertAction) {
-      await api('/api/manage/records.php?resource=alerts', { method: 'PUT', body: { id: alertAction.dataset.id, status: alertAction.dataset.alertAction } });
-      toast('Alerta actualizada.');
-      await loadAlerts();
+      try {
+        await api('/api/manage/records.php?resource=alerts', { method: 'PUT', body: { id: alertAction.dataset.id, status: alertAction.dataset.alertAction } });
+        await loadAlerts();
+      } catch (error) { toast(error.message, 'error'); }
       return;
     }
+
+    const taskMove = event.target.closest('[data-task-move]');
+    if (taskMove) {
+      try { await moveTask(taskMove.dataset.id, taskMove.dataset.taskMove); }
+      catch (error) { toast(error.message, 'error'); }
+      return;
+    }
+
     const deleteRecord = event.target.closest('[data-delete-record]');
     if (deleteRecord) {
       if (!confirm('¿Eliminar este registro?')) return;
-      await api(`/api/manage/records.php?resource=${deleteRecord.dataset.deleteRecord}`, { method: 'DELETE', body: { id: deleteRecord.dataset.id } });
-      toast('Registro eliminado.');
-      await refreshCurrentView(false);
-      return;
-    }
-    const deleteApiary = event.target.closest('[data-delete-apiary]');
-    if (deleteApiary) {
-      if (!confirm('¿Eliminar este apiario?')) return;
       try {
-        await api('/api/dashboard/apiaries.php', { method: 'DELETE', body: { id: deleteApiary.dataset.deleteApiary } });
-        toast('Apiario eliminado.');
-        await loadApiaries(); populateAllSelects();
+        await api(`/api/manage/records.php?resource=${deleteRecord.dataset.deleteRecord}`, { method: 'DELETE', body: { id: deleteRecord.dataset.id } });
+        toast('Registro eliminado.');
+        await refreshCurrentView(false);
+        if (deleteRecord.dataset.deleteRecord === 'treatments' || deleteRecord.dataset.deleteRecord === 'varroa') await loadHives();
       } catch (error) { toast(error.message, 'error'); }
       return;
     }
-    const deleteHive = event.target.closest('[data-delete-hive]');
-    if (deleteHive) {
-      if (!confirm('¿Eliminar esta colmena y sus registros asociados?')) return;
-      try {
-        await api('/api/dashboard/hives.php', { method: 'DELETE', body: { id: deleteHive.dataset.deleteHive } });
-        toast('Colmena eliminada.');
-        await Promise.all([loadHives(), loadDevices()]); populateAllSelects();
-      } catch (error) { toast(error.message, 'error'); }
-      return;
+
+    const calendarDay = event.target.closest('[data-calendar-date]');
+    if (calendarDay) {
+      openDialog('eventDialog', { event_date: calendarDay.dataset.calendarDate, task_status: 'pending' });
     }
-    const calDay = event.target.closest('[data-calendar-date]');
-    if (calDay) openDialog('eventDialog', { event_date: calDay.dataset.calendarDate });
   }
 
-  function downloadCsv(filename, rows) {
-    const csv = rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
-    const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url; link.download = filename; link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  window.addEventListener('online', () => { $('#connectionChip').classList.remove('offline'); $('#connectionChip span').textContent = 'Conectado'; });
-  window.addEventListener('offline', () => { $('#connectionChip').classList.add('offline'); $('#connectionChip span').textContent = 'Sin conexión'; });
+  window.addEventListener('online', () => {
+    $('#connectionChip')?.classList.remove('offline');
+    $('#connectionChip span').textContent = 'Conectado';
+  });
+  window.addEventListener('offline', () => {
+    $('#connectionChip')?.classList.add('offline');
+    $('#connectionChip span').textContent = 'Sin conexión';
+  });
 
   bootstrap();
 })();
