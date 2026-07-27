@@ -1,38 +1,21 @@
-# Mellifera — aplicación para GitHub Pages
+# Mellifera — frontend GitHub Pages 1.2
 
-Esta carpeta es únicamente el **frontend** de Mellifera. No contiene PHP, contraseñas de MySQL ni credenciales de madres.
-
-## Dirección preparada
+Frontend publicado en:
 
 - Aplicación: `https://app.mellifera-technology.com`
-- API: `https://mellifera-api.mellifera-technology.com`
+- API local: `https://mellifera-api.mellifera-technology.com`
+
+## Incluye
+
+- Registro e ingreso de productores.
+- Panel normal con datos aislados por usuario.
+- Historial de publicaciones sin mostrar código interno ni MAC.
+- Panel administrativo independiente en `admin.html`.
+- Estado del servidor, usuarios, códigos únicos y recepciones globales.
+- Entrada administrativa segura a la cuenta de un productor.
 
 ## Publicación
 
-1. Crear un repositorio en GitHub.
-2. Subir el contenido de esta carpeta a la raíz del repositorio.
-3. En **Settings → Pages**, publicar desde la rama principal y la carpeta raíz.
-4. En **Custom domain**, indicar `app.mellifera-technology.com`.
-5. Conservar el archivo `CNAME` incluido.
+Subir **el contenido** de esta carpeta a la raíz del repositorio de GitHub Pages. Conservar `CNAME` con `app.mellifera-technology.com`.
 
-La aplicación usa `config.js` para conectarse exclusivamente con la API.
-
-## Seguridad
-
-- MySQL continúa en Laragon y no se publica.
-- GitHub Pages no recibe credenciales de la base.
-- La sesión se guarda en una cookie segura del dominio de la API.
-- El navegador envía la cookie con `credentials: include`.
-- El backend solo acepta solicitudes desde `https://app.mellifera-technology.com`.
-
-## Prueba final
-
-Abrir primero:
-
-`https://mellifera-api.mellifera-technology.com/api/status.php`
-
-Debe responder JSON con `"ok": true` y `"database": "connected"`.
-
-Después abrir:
-
-`https://app.mellifera-technology.com`
+Después de publicar, recargar con `Ctrl + Shift + R`. La versión del Service Worker es `mellifera-app-v3`.

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="">
+  <title>Administración — Mellifera Technology</title>
+  <link rel="icon" href="assets/img/logo-light.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="config.js" defer></script>
+  <script src="assets/js/admin.js" defer></script>
+  <script src="pwa.js" defer></script>
+</head>
+<body class="dashboard-page admin-page">
+  <div class="dash-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <a class="brand" href="admin.html"><span class="brand-mark"><i></i><i></i><i></i></span><span>MELLIFERA</span></a>
+        <button id="closeSidebar" type="button" aria-label="Cerrar menú">×</button>
+      </div>
+      <nav class="side-nav" id="adminNav">
+        <button class="active" data-admin-view="server"><span>◉</span>Servidor</button>
+        <button data-admin-view="users"><span>◎</span>Usuarios</button>
+        <button data-admin-view="incoming"><span>≡</span>Recepciones</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="user-avatar" id="adminAvatar">A</div>
+        <div><b id="adminName">Administrador</b><small>Acceso técnico</small></div>
+        <button id="adminLogoutButton" type="button" title="Cerrar sesión">↪</button>
+      </div>
+    </aside>
+
+    <div class="dash-main">
+      <header class="dash-topbar">
+        <button class="icon-button mobile-only" id="openSidebar" type="button" aria-label="Abrir menú">☰</button>
+        <div class="topbar-title"><small id="adminEyebrow">Administración</small><h1 id="adminTitle">Estado del servidor</h1></div>
+        <div class="topbar-actions"><span class="connection-chip" id="adminConnection"><i></i><span>Verificando</span></span><button class="icon-button" id="adminRefreshButton" type="button" title="Actualizar">↻</button></div>
+      </header>
+
+      <main class="dash-content admin-content">
+        <section class="dash-view active" data-admin-panel="server">
+          <div class="view-actions"><div><h2>Estado del servidor</h2><p>Conexión de la API, base local y actividad de recepción.</p></div></div>
+          <div class="summary-grid" id="adminServerSummary">
+            <article class="summary-card"><span class="summary-icon green">◉</span><div><small>API</small><b id="serverApi">—</b><em id="serverHost">—</em></div></article>
+            <article class="summary-card"><span class="summary-icon blue">▤</span><div><small>Base de datos</small><b id="serverDatabase">—</b><em id="serverSchema">—</em></div></article>
+            <article class="summary-card"><span class="summary-icon honey">◎</span><div><small>Usuarios activos</small><b id="serverUsers">—</b><em id="serverUsersTotal">— registrados</em></div></article>
+            <article class="summary-card"><span class="summary-icon violet">≡</span><div><small>Recepciones hoy</small><b id="serverToday">—</b><em id="serverTotal">— históricas</em></div></article>
+          </div>
+          <div class="overview-grid lower">
+            <article class="panel panel-wide">
+              <header class="panel-head"><div><small>Actividad</small><h3>Última recepción</h3></div></header>
+              <div class="server-detail-grid">
+                <span><small>Fecha y hora</small><b id="serverLastReception">—</b></span>
+                <span><small>Hora del servidor</small><b id="serverTime">—</b></span>
+                <span><small>Zona horaria</small><b id="serverTimezone">—</b></span>
+                <span><small>PHP</small><b id="serverPhp">—</b></span>
+              </div>
+            </article>
+            <article class="panel">
+              <header class="panel-head"><div><small>Inventario</small><h3>Colmenas</h3></div></header>
+              <div class="server-big-number"><b id="serverHives">—</b><span>colmenas registradas</span></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dash-view" data-admin-panel="users">
+          <div class="view-actions"><div><h2>Usuarios</h2><p>Emails, códigos únicos ocultos y acceso administrativo a cada cuenta.</p></div><button class="button button-ghost" id="refreshUsersButton" type="button">Actualizar usuarios</button></div>
+          <div class="filter-bar"><input id="adminUserSearch" type="search" placeholder="Buscar por nombre, email o código único"></div>
+          <article class="panel"><div class="table-wrap admin-table-wrap"><table><thead><tr><th>Usuario</th><th>Email</th><th>Código único</th><th>Estado</th><th>Colmenas</th><th>Recepciones</th><th>Última publicación</th><th></th></tr></thead><tbody id="adminUsersTable"><tr><td colspan="8">Cargando usuarios…</td></tr></tbody></table></div></article>
+        </section>
+
+        <section class="dash-view" data-admin-panel="incoming">
+          <div class="view-actions"><div><h2>Recepciones</h2><p>Todo lo recibido: código, MAC, sensor, medición y resultado del procesamiento.</p></div><button class="button button-ghost" id="refreshIncomingButton" type="button">Actualizar tabla</button></div>
+          <div class="filter-bar multi admin-incoming-filters">
+            <input id="incomingSearch" type="search" placeholder="Usuario, código, MAC o sensor">
+            <select id="incomingStatus"><option value="">Todos los estados</option><option value="stored">Guardado</option><option value="hive_created">Colmena creada</option><option value="hive_exists">Colmena existente</option><option value="pending_child">Pendiente de alta</option><option value="invalid_account">Código inválido</option><option value="invalid_payload">Paquete inválido</option><option value="device_conflict">Conflicto</option><option value="error">Error</option></select>
+            <select id="incomingUser"><option value="">Todos los usuarios</option></select>
+          </div>
+          <article class="panel">
+            <div class="table-wrap admin-incoming-table"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Código único</th><th>MAC</th><th>Sensor</th><th>Medición</th><th>Colmena</th><th>Resultado</th></tr></thead><tbody id="adminIncomingTable"><tr><td colspan="8">Cargando recepciones…</td></tr></tbody></table></div>
+            <footer class="table-pagination"><span id="incomingPaginationLabel">—</span><div><button class="mini-button" id="incomingPrev" type="button">← Anterior</button><button class="mini-button" id="incomingNext" type="button">Siguiente →</button></div></footer>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="loading-overlay" id="loadingOverlay"><div class="loader"></div></div>
+</body>
+</html>

@@ -16,6 +16,9 @@
     currentView: 'overview',
     charts: {},
     readingItems: [],
+    historyItems: [],
+    actor: null,
+    impersonating: false,
     adminUsers: [],
     adminProvisioning: null,
     calendarDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -26,6 +29,7 @@
     apiaries: ['Organización', 'Apiarios'],
     hives: ['Organización', 'Colmenas'],
     readings: ['Telemetría', 'Mediciones'],
+    history: ['Telemetría', 'Historial recibido'],
     alerts: ['Telemetría', 'Alertas'],
     production: ['Gestión', 'Producción'],
     health: ['Gestión', 'Sanidad'],
@@ -179,14 +183,25 @@
         return;
       }
       state.user = me.user;
+      state.actor = me.actor || me.user;
+      state.impersonating = Boolean(me.impersonating);
       state.csrf = me.csrf_token;
+
+      if (state.actor?.role === 'admin' && !state.impersonating) {
+        location.replace('admin.html');
+        return;
+      }
+
       $('#sidebarUserName').textContent = me.user.name;
       $('#sidebarUserEmail').textContent = me.user.email;
       $('#userAvatar').textContent = me.user.name.trim().charAt(0).toUpperCase();
       $('#welcomeName').textContent = me.user.name.trim().split(/\s+/)[0];
       $('#todayLabel').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      if (me.user.role === 'admin') {
-        $('#adminNavButton')?.removeAttribute('hidden');
+
+      if (state.impersonating) {
+        const banner = $('#impersonationBanner');
+        banner?.removeAttribute('hidden');
+        $('#impersonationUserName').textContent = me.user.name;
       }
 
       const today = new Date();
@@ -227,6 +242,9 @@
     $('#readingMetric')?.addEventListener('change', loadReadings);
     $('#readingHive')?.addEventListener('change', loadReadings);
     $('#exportReadings')?.addEventListener('click', exportReadingsCsv);
+    $('#loadHistory')?.addEventListener('click', loadHistory);
+    $('#historySensor')?.addEventListener('change', loadHistory);
+    $('#stopImpersonationButton')?.addEventListener('click', stopImpersonation);
     $('#alertStatusFilter')?.addEventListener('change', loadAlerts);
     $('#calendarPrev')?.addEventListener('click', () => changeCalendarMonth(-1));
     $('#calendarNext')?.addEventListener('click', () => changeCalendarMonth(1));
@@ -268,6 +286,7 @@
         apiaries: async () => { await loadApiaries(); renderApiaries(); },
         hives: async () => { await loadHives(); renderHives(); },
         readings: loadReadings,
+        history: loadHistory,
         alerts: loadAlerts,
         production: loadProduction,
         health: loadHealth,
@@ -445,7 +464,7 @@
       const online = item.last_seen_at && (Date.now() - new Date(item.last_seen_at.replace(' ', 'T')).getTime() <= 20 * 60 * 1000);
       return `<article class="content-card">
         <div class="card-top"><div><small>${escapeHtml(item.apiary_name)}</small><h3>${escapeHtml(item.display_name)}</h3></div><i class="status-dot ${online ? 'online' : ''}" title="${online ? 'En línea' : 'Sin conexión reciente'}"></i></div>
-        <p>${item.device_uid ? `Dispositivo ${escapeHtml(item.device_uid)}` : 'Sin dispositivo asignado'}</p>
+        <p>${item.device_name ? escapeHtml(item.device_name) : 'Sin dispositivo asignado'}</p>
         <div class="hive-metrics"><span>Temperatura<b>${formatNumber(item.temperature_in)} °C</b></span><span>Humedad<b>${formatNumber(item.humidity_in)} %</b></span><span>Peso<b>${formatNumber(item.weight_kg)} kg</b></span></div>
         <div class="card-actions"><button class="mini-button" data-open-reading-hive="${item.id}">Mediciones</button><button class="mini-button" data-edit-hive="${item.id}">Editar</button><button class="mini-button danger" data-delete-hive="${item.id}">Eliminar</button></div>
       </article>`;
@@ -465,7 +484,7 @@
     $('#readingUnit').textContent = data.metric.unit;
     $('#readingChartEmpty').style.display = state.readingItems.length ? 'none' : 'grid';
     lineChart('readings', 'readingChart', state.readingItems.map(item => formatDate(item.measured_at, true)), state.readingItems.map(item => Number(item.value)), data.metric.unit);
-    $('#readingTable').innerHTML = state.readingItems.length ? state.readingItems.slice().reverse().map(item => `<tr><td>${formatDate(item.measured_at, true)}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td>${escapeHtml(item.device_uid)}</td><td><span class="value-badge">${formatNumber(item.value, 2)} ${escapeHtml(data.metric.unit)}</span></td></tr>`).join('') : '<tr><td colspan="4">Sin mediciones en el rango seleccionado.</td></tr>';
+    $('#readingTable').innerHTML = state.readingItems.length ? state.readingItems.slice().reverse().map(item => `<tr><td>${formatDate(item.measured_at, true)}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td>${escapeHtml(item.device_name || 'Dispositivo')}</td><td><span class="value-badge">${formatNumber(item.value, 2)} ${escapeHtml(data.metric.unit)}</span></td></tr>`).join('') : '<tr><td colspan="4">Sin mediciones en el rango seleccionado.</td></tr>';
   }
 
   function exportReadingsCsv() {
@@ -474,8 +493,60 @@
       return;
     }
     const metric = $('#readingMetric').value;
-    const rows = [['fecha','colmena','dispositivo',metric], ...state.readingItems.map(item => [item.measured_at, item.hive_name || '', item.device_uid, item.value])];
+    const rows = [['fecha','colmena','dispositivo',metric], ...state.readingItems.map(item => [item.measured_at, item.hive_name || '', item.device_name || '', item.value])];
     downloadCsv(`mellifera_${metric}_${dateInput(new Date())}.csv`, rows);
+  }
+
+  async function loadHistory() {
+    const from = $('#historyFrom')?.value || '';
+    const to = $('#historyTo')?.value || '';
+    const sensor = $('#historySensor')?.value || '';
+    const params = new URLSearchParams({ limit: '500' });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (sensor) params.set('sensor', sensor);
+
+    const data = await api(`/api/history.php?${params}`);
+    state.historyItems = data.items || [];
+
+    const table = $('#historyTable');
+    if (!table) return;
+    if (!state.historyItems.length) {
+      table.innerHTML = '<tr><td colspan="6">Todavía no hay publicaciones recibidas.</td></tr>';
+      return;
+    }
+
+    table.innerHTML = state.historyItems.map(item => {
+      const value = item.measurement_num !== null && item.measurement_num !== undefined
+        ? formatNumber(item.measurement_num, 3)
+        : escapeHtml(item.measurement_text || '—');
+      const statusText = {
+        stored: 'Guardado',
+        hive_created: 'Colmena creada',
+        hive_exists: 'Colmena existente',
+        pending_child: 'Pendiente de alta',
+      }[item.processing_status] || item.processing_status;
+      return `<tr>
+        <td>${formatDate(item.received_at, true)}</td>
+        <td><b>${escapeHtml(item.hive_name || 'Sin colmena')}</b></td>
+        <td>${escapeHtml(item.device_name || 'Dispositivo')}</td>
+        <td><span class="sensor-badge">${escapeHtml(item.sensor || '—')}</span></td>
+        <td><span class="value-badge">${value}</span></td>
+        <td><span class="status-badge ${escapeHtml(item.processing_status)}">${escapeHtml(statusText)}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function stopImpersonation() {
+    setLoading(true);
+    try {
+      await api('/api/admin/stop_impersonation.php', { method: 'POST', body: {} });
+      location.replace('admin.html');
+    } catch (error) {
+      toast(error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadAlerts() {
@@ -606,7 +677,7 @@
       table.innerHTML = '<tr><td colspan="7">No hay dispositivos provisionados.</td></tr>';
       return;
     }
-    table.innerHTML = state.devices.map(item => `<tr><td>${item.device_type === 'mother' ? 'Madre' : 'Hijo'}</td><td><b>${escapeHtml(item.display_name || item.device_uid)}</b><br><small>${escapeHtml(item.device_uid)}</small></td><td>${escapeHtml(item.parent_uid || '—')}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td><span class="status-badge ${item.status === 'unassigned' ? 'unassigned' : item.is_online ? 'active' : ''}">${item.is_online ? 'En línea' : escapeHtml(item.status)}</span></td><td>${formatDate(item.last_seen_at, true)}</td><td>${item.device_type === 'child' ? `<button class="mini-button" data-assign-device="${item.id}">Asignar</button>` : ''}</td></tr>`).join('');
+    table.innerHTML = state.devices.map(item => `<tr><td>${item.device_type === 'mother' ? 'Madre' : 'Hijo'}</td><td><b>${escapeHtml(item.display_name || 'Dispositivo')}</b></td><td>${escapeHtml(item.parent_name || '—')}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td><span class="status-badge ${item.status === 'unassigned' ? 'unassigned' : item.is_online ? 'active' : ''}">${item.is_online ? 'En línea' : escapeHtml(item.status)}</span></td><td>${formatDate(item.last_seen_at, true)}</td><td>${item.device_type === 'child' ? `<button class="mini-button" data-assign-device="${item.id}">Asignar</button>` : ''}</td></tr>`).join('');
   }
 
   async function loadAdminUsers() {

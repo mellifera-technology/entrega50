@@ -12,6 +12,24 @@
 
   const apiUrl = path => `${apiBase}${path.startsWith('/') ? path : `/${path}`}`;
 
+  function redirectForSession(data) {
+    if (!data?.authenticated && !data?.user) return false;
+    const user = data.user;
+    const actor = data.actor || user;
+    const impersonating = Boolean(data.impersonating);
+    location.replace(actor?.role === 'admin' && !impersonating ? 'admin.html' : 'dashboard.html');
+    return true;
+  }
+
+  async function readJson(response) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`La API devolvió una respuesta inválida (HTTP ${response.status}).`);
+    }
+  }
+
   async function loadSession() {
     const response = await fetch(apiUrl('/api/auth/me.php'), {
       method: 'GET',
@@ -19,10 +37,10 @@
       headers: { Accept: 'application/json' },
       cache: 'no-store',
     });
-    const data = await response.json();
+    const data = await readJson(response);
     if (!response.ok) throw new Error(data.message || 'No se pudo iniciar la sesión segura.');
     csrf = data.csrf_token || '';
-    if (data.authenticated) location.replace('dashboard.html');
+    redirectForSession(data);
   }
 
   document.querySelectorAll('.password-toggle').forEach(button => {
@@ -62,9 +80,11 @@
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = await readJson(response);
       if (!response.ok) throw new Error(data.message || 'No se pudo completar la operación.');
-      location.replace('dashboard.html');
+      if (!redirectForSession({ ...data, authenticated: true })) {
+        location.replace('dashboard.html');
+      }
     } catch (error) {
       status.className = 'form-status error';
       status.textContent = error.message || 'No se pudo conectar con el servidor.';

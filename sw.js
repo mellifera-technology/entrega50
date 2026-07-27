@@ -1,8 +1,8 @@
-const CACHE = 'mellifera-app-v2';
+const CACHE = 'mellifera-app-v3';
 const STATIC = [
-  './', './index.html', './login.html', './register.html', './dashboard.html',
+  './', './index.html', './login.html', './register.html', './dashboard.html', './admin.html',
   './config.js', './manifest.webmanifest', './assets/css/app.css',
-  './assets/js/site.js', './assets/js/auth.js', './assets/js/dashboard.js',
+  './assets/js/site.js', './assets/js/auth.js', './assets/js/dashboard.js', './assets/js/admin.js',
   './assets/img/logo-light.png', './assets/img/logo-dark.png', './assets/img/logo-hero.jpg'
 ];
 
