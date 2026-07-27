@@ -120,7 +120,7 @@
         </ul>
       </div>
       <div class="browser-mock reveal">
-        <div class="browser-bar"><i></i><i></i><i></i><span>mellifera-technology.com/dashboard</span></div>
+        <div class="browser-bar"><i></i><i></i><i></i><span>app.mellifera-technology.com/dashboard</span></div>
         <div class="browser-body">
           <aside><b>M</b><span></span><span></span><span></span><span></span><span></span></aside>
           <div class="browser-content"><div class="mock-head"><div><small>Buenos días</small><b>Resumen del apiario</b></div><i>Actualizado</i></div><div class="mock-cards"><span></span><span></span><span></span><span></span></div><div class="mock-row"><div class="mock-chart"><svg viewBox="0 0 500 150" preserveAspectRatio="none"><path class="chart-grid" d="M0 38H500M0 76H500M0 114H500"/><path class="chart-stroke" d="M0 116C65 98 92 72 148 82S234 33 300 61S398 27 500 45"/></svg></div><div class="mock-list"><i></i><i></i><i></i><i></i></div></div></div>
@@ -140,11 +140,11 @@
         <article><b>03</b><span>⌂</span><h3>Laragon + PHP</h3><p>Autentica, valida y procesa cada paquete.</p></article><i>→</i>
         <article><b>04</b><span>▤</span><h3>MySQL local</h3><p>Guarda los datos aislados por propietario.</p></article>
       </div>
-      <div class="architecture-note reveal"><b>Identidad invisible para el usuario.</b><span>Cada cuenta recibe un UUID interno único. Cada madre tiene además su propio token. Ninguno se muestra en el panel del productor.</span></div>
+      <div class="architecture-note reveal"><b>Datos separados por cuenta.</b><span>La plataforma relaciona automáticamente cada dispositivo y cada medición con su propietario.</span></div>
     </section>
 
     <section class="marketing-section security" id="seguridad">
-      <div class="security-card reveal"><span class="security-orbit"></span><div class="shield">⬢</div><div><span class="eyebrow"><i></i> Seguridad por diseño</span><h2>Cada usuario consulta únicamente sus propios datos.</h2><p>La sesión identifica al propietario y todas las consultas incluyen su ID interno. Las madres se validan con código de cuenta, identificador de dispositivo y token secreto individual.</p><div class="security-points"><span>Contraseñas cifradas</span><span>Sesiones seguras</span><span>Protección CSRF</span><span>API autenticada</span><span>MySQL privado</span><span>Auditoría</span></div></div></div>
+      <div class="security-card reveal"><span class="security-orbit"></span><div class="shield">⬢</div><div><span class="eyebrow"><i></i> Seguridad por diseño</span><h2>Cada usuario consulta únicamente sus propios datos.</h2><p>La sesión identifica al propietario y todas las consultas se limitan automáticamente a sus propios apiarios, colmenas y mediciones.</p><div class="security-points"><span>Contraseñas cifradas</span><span>Sesiones seguras</span><span>Protección CSRF</span><span>API autenticada</span><span>MySQL privado</span><span>Auditoría</span></div></div></div>
     </section>
 
     <section class="marketing-section contact-section" id="contacto">

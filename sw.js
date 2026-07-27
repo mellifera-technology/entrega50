@@ -1,4 +1,4 @@
-const CACHE = 'mellifera-app-v1';
+const CACHE = 'mellifera-app-v2';
 const STATIC = [
   './', './index.html', './login.html', './register.html', './dashboard.html',
   './config.js', './manifest.webmanifest', './assets/css/app.css',
@@ -16,7 +16,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (url.hostname === 'api.mellifera-technology.com' || event.request.method !== 'GET') return;
+  if (url.hostname === 'mellifera-api.mellifera-technology.com' || event.request.method !== 'GET') return;
   event.respondWith(fetch(event.request).then(response => {
     const copy = response.clone();
     caches.open(CACHE).then(cache => cache.put(event.request, copy));

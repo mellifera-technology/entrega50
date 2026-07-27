@@ -32,6 +32,7 @@
         <button data-view="calendar"><span>▦</span>Calendario</button>
         <button data-view="notes"><span>✎</span>Anotaciones</button>
         <button data-view="devices"><span>◉</span>Dispositivos</button>
+        <button id="adminNavButton" data-view="admin" hidden><span>⚙</span>Administración</button>
       </nav>
       <div class="sidebar-foot"><div class="user-avatar" id="userAvatar">M</div><div><b id="sidebarUserName">Cargando…</b><small id="sidebarUserEmail">—</small></div><button id="logoutButton" type="button" title="Cerrar sesión">↪</button></div>
     </aside>
@@ -124,9 +125,20 @@
         </section>
 
         <section class="dash-view" data-view-panel="devices">
-          <div class="view-actions"><div><h2>Dispositivos</h2><p>Estado de madres e hijos. Los códigos secretos nunca se muestran aquí.</p></div></div>
-          <div class="notice-card"><span>i</span><div><b>Vinculación segura</b><p>Las madres se provisionan fuera de la cuenta del usuario. Los hijos detectados aparecen como pendientes hasta que se asignan a una colmena.</p></div></div>
+          <div class="view-actions"><div><h2>Dispositivos</h2><p>Estado operativo de los nodos madres e hijos.</p></div></div>
+          <div class="notice-card"><span>i</span><div><b>Vinculación automática</b><p>Los hijos detectados aparecen como pendientes hasta que se asignan a una colmena.</p></div></div>
           <article class="panel"><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Dispositivo</th><th>Madre</th><th>Colmena</th><th>Estado</th><th>Última conexión</th><th></th></tr></thead><tbody id="deviceTable"></tbody></table></div></article>
+        </section>
+
+        <section class="dash-view" data-view-panel="admin">
+          <div class="view-actions"><div><h2>Administración</h2><p>Usuarios registrados, códigos de vinculación y dispositivos madres.</p></div><button class="button button-primary" data-open-dialog="motherProvisionDialog">+ Provisionar madre</button></div>
+          <div class="filter-bar"><input id="adminUserSearch" type="search" placeholder="Buscar por nombre, email o código"><button class="button button-ghost" id="adminRefreshButton" type="button">Actualizar</button></div>
+          <article class="panel admin-provision-result" id="adminProvisionResult" hidden>
+            <header class="panel-head"><div><small>Credenciales generadas</small><h3>Programación de la madre</h3></div><button class="button button-ghost button-small" id="copyProvisioningButton" type="button">Copiar configuración</button></header>
+            <p>Este token se muestra una sola vez. Debe cargarse en la madre y conservarse fuera del panel del productor.</p>
+            <pre id="adminProvisioningJson"></pre>
+          </article>
+          <article class="panel"><div class="table-wrap admin-table-wrap"><table><thead><tr><th>Usuario</th><th>Email</th><th>Código único</th><th>Estado</th><th>Dispositivos</th><th>Última conexión</th><th>Acciones</th></tr></thead><tbody id="adminUserTable"></tbody></table></div></article>
         </section>
       </main>
     </div>
@@ -152,5 +164,8 @@
   <dialog id="noteDialog" class="app-dialog"><form method="dialog" data-form="note"><header><div><small>Anotación</small><h3>Nueva anotación</h3></div><button type="button" data-close-dialog>×</button></header><div class="form-grid"><label>Colmena<select name="hive_id"><option value="">General</option></select></label><label>Título<input name="title"></label><label class="span-2">Texto<textarea name="note_text" rows="7" required></textarea></label><label class="checkbox-label span-2"><input name="pinned" type="checkbox"><span>Fijar esta anotación</span></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar anotación</button></footer></form></dialog>
 
   <dialog id="deviceDialog" class="app-dialog"><form method="dialog" data-form="device"><header><div><small>Dispositivo</small><h3>Asignar dispositivo</h3></div><button type="button" data-close-dialog>×</button></header><input type="hidden" name="id"><div class="form-grid"><label class="span-2">Nombre visible<input name="display_name"></label><label class="span-2">Colmena<select name="hive_id"><option value="">Sin asignar</option></select></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Guardar asignación</button></footer></form></dialog>
+
+
+  <dialog id="motherProvisionDialog" class="app-dialog"><form method="dialog" data-form="admin-mother"><header><div><small>Administración</small><h3>Provisionar nodo madre</h3></div><button type="button" data-close-dialog aria-label="Cerrar">×</button></header><div class="form-grid"><label class="span-2">Usuario<select name="user_id" id="adminMotherUser" required><option value="">Seleccione...</option></select></label><label>UID de la madre<input name="device_uid" required maxlength="96" placeholder="MADRE-000001"></label><label>Número de serie<input name="serial_number" maxlength="120" placeholder="Opcional"></label><label class="span-2">Nombre visible<input name="display_name" maxlength="120" placeholder="Nodo madre principal"></label></div><footer><button class="button button-ghost" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" value="default" data-submit>Crear credenciales</button></footer></form></dialog>
 </body>
 </html>

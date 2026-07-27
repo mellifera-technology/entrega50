@@ -25,9 +25,9 @@
       <div class="auth-card">
         <span class="eyebrow"><i></i> Bienvenido</span>
         <h2>Iniciar sesión</h2>
-        <p>Ingrese con el email y la contraseña de su cuenta.</p>
+        <p>Ingrese con su usuario o email y contraseña.</p>
         <form id="authForm" data-mode="login">
-          <label>Email<input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@dominio.com"></label>
+          <label>Usuario o email<input id="login" name="login" type="text" autocomplete="username" required maxlength="190" placeholder="admin o nombre@dominio.com"></label>
           <label>Contraseña<div class="password-field"><input id="password" name="password" type="password" autocomplete="current-password" required placeholder="Su contraseña"><button class="password-toggle" type="button" data-target="password" aria-label="Mostrar contraseña">Ver</button></div></label>
           <button class="button button-primary button-full" type="submit">Ingresar al panel</button>
           <p class="form-status" id="authStatus" role="alert"></p>

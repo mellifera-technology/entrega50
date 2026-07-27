@@ -16,6 +16,8 @@
     currentView: 'overview',
     charts: {},
     readingItems: [],
+    adminUsers: [],
+    adminProvisioning: null,
     calendarDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   };
 
@@ -31,6 +33,7 @@
     calendar: ['Gestión', 'Calendario'],
     notes: ['Gestión', 'Anotaciones'],
     devices: ['Infraestructura', 'Dispositivos'],
+    admin: ['Administración', 'Usuarios y dispositivos'],
   };
 
   const metricLabels = {
@@ -182,6 +185,9 @@
       $('#userAvatar').textContent = me.user.name.trim().charAt(0).toUpperCase();
       $('#welcomeName').textContent = me.user.name.trim().split(/\s+/)[0];
       $('#todayLabel').textContent = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      if (me.user.role === 'admin') {
+        $('#adminNavButton')?.removeAttribute('hidden');
+      }
 
       const today = new Date();
       $('#readingTo').value = dateInput(today);
@@ -224,6 +230,9 @@
     $('#alertStatusFilter')?.addEventListener('change', loadAlerts);
     $('#calendarPrev')?.addEventListener('click', () => changeCalendarMonth(-1));
     $('#calendarNext')?.addEventListener('click', () => changeCalendarMonth(1));
+    $('#adminUserSearch')?.addEventListener('input', renderAdminUsers);
+    $('#adminRefreshButton')?.addEventListener('click', loadAdminUsers);
+    $('#copyProvisioningButton')?.addEventListener('click', copyProvisioningConfiguration);
 
     document.addEventListener('click', handleDelegatedClick);
   }
@@ -266,6 +275,7 @@
         calendar: loadCalendar,
         notes: loadNotes,
         devices: async () => { await loadDevices(); renderDevices(); },
+        admin: loadAdminUsers,
       };
       await loaders[state.currentView]?.();
     } catch (error) {
@@ -599,6 +609,74 @@
     table.innerHTML = state.devices.map(item => `<tr><td>${item.device_type === 'mother' ? 'Madre' : 'Hijo'}</td><td><b>${escapeHtml(item.display_name || item.device_uid)}</b><br><small>${escapeHtml(item.device_uid)}</small></td><td>${escapeHtml(item.parent_uid || '—')}</td><td>${escapeHtml(item.hive_name || 'Sin asignar')}</td><td><span class="status-badge ${item.status === 'unassigned' ? 'unassigned' : item.is_online ? 'active' : ''}">${item.is_online ? 'En línea' : escapeHtml(item.status)}</span></td><td>${formatDate(item.last_seen_at, true)}</td><td>${item.device_type === 'child' ? `<button class="mini-button" data-assign-device="${item.id}">Asignar</button>` : ''}</td></tr>`).join('');
   }
 
+  async function loadAdminUsers() {
+    if (state.user?.role !== 'admin') return;
+    const data = await api('/api/admin/users.php');
+    state.adminUsers = data.items || [];
+    populateAdminUserSelect();
+    renderAdminUsers();
+  }
+
+  function populateAdminUserSelect() {
+    const select = $('#adminMotherUser');
+    if (!select) return;
+    const current = select.value;
+    const users = state.adminUsers.filter(item => item.role !== 'admin' && item.status === 'active');
+    select.innerHTML = `<option value="">Seleccione...</option>${users.map(item => `<option value="${item.id}">${escapeHtml(item.name)} · ${escapeHtml(item.email)}</option>`).join('')}`;
+    if (current && users.some(item => String(item.id) === String(current))) select.value = current;
+  }
+
+  function renderAdminUsers() {
+    const table = $('#adminUserTable');
+    if (!table || state.user?.role !== 'admin') return;
+    const search = ($('#adminUserSearch')?.value || '').trim().toLocaleLowerCase('es');
+    const items = state.adminUsers.filter(item => {
+      if (!search) return true;
+      return [item.name, item.email, item.internal_code, item.role, item.status]
+        .some(value => String(value || '').toLocaleLowerCase('es').includes(search));
+    });
+
+    if (!items.length) {
+      table.innerHTML = '<tr><td colspan="7">No hay usuarios que coincidan con la búsqueda.</td></tr>';
+      return;
+    }
+
+    table.innerHTML = items.map(item => {
+      const canProvision = item.role !== 'admin' && item.status === 'active';
+      const nextStatus = item.status === 'active' ? 'blocked' : 'active';
+      const statusLabel = item.status === 'active' ? 'Bloquear' : 'Activar';
+      return `<tr>
+        <td><div class="admin-user-main"><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.role)}</small></div></td>
+        <td>${escapeHtml(item.email)}</td>
+        <td><div class="admin-code-cell"><code>${escapeHtml(item.internal_code)}</code><button class="mini-button" data-copy-user-code="${item.id}" type="button">Copiar</button></div></td>
+        <td><span class="status-badge ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span></td>
+        <td><div class="admin-device-counts"><span>${Number(item.mothers_count || 0)} madres</span><span>${Number(item.children_count || 0)} hijos</span></div></td>
+        <td>${formatDate(item.last_seen_at, true)}</td>
+        <td><div class="admin-actions">${canProvision ? `<button class="mini-button" data-admin-provision-user="${item.id}" type="button">Nueva madre</button>` : ''}${item.role === 'admin' ? '' : `<button class="mini-button ${nextStatus === 'blocked' ? 'danger' : ''}" data-admin-user-status="${nextStatus}" data-id="${item.id}" type="button">${statusLabel}</button>`}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function showProvisioningConfiguration(provisioning) {
+    state.adminProvisioning = provisioning || null;
+    const panel = $('#adminProvisionResult');
+    const pre = $('#adminProvisioningJson');
+    if (!panel || !pre || !state.adminProvisioning) return;
+    pre.textContent = JSON.stringify(state.adminProvisioning, null, 2);
+    panel.removeAttribute('hidden');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function copyProvisioningConfiguration() {
+    if (!state.adminProvisioning) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(state.adminProvisioning, null, 2));
+      toast('Configuración copiada.');
+    } catch {
+      toast('No se pudo copiar automáticamente.', 'error');
+    }
+  }
+
   function openDialog(id, preset = {}) {
     const dialog = document.getElementById(id);
     if (!dialog) return;
@@ -620,6 +698,23 @@
     const type = form.dataset.form;
     const data = Object.fromEntries(new FormData(form).entries());
     $$('input[type="checkbox"]', form).forEach(input => { data[input.name] = input.checked ? 1 : 0; });
+
+    if (type === 'admin-mother') {
+      setLoading(true);
+      try {
+        const result = await api('/api/admin/mothers.php', { method: 'POST', body: data });
+        form.closest('dialog').close();
+        showProvisioningConfiguration(result.provisioning);
+        toast('Madre provisionada correctamente.');
+        await loadAdminUsers();
+      } catch (error) {
+        toast(error.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     let endpoint = '';
     let method = 'POST';
 
@@ -650,6 +745,37 @@
     const closeDialog = event.target.closest('[data-close-dialog]');
     if (closeDialog) {
       closeDialog.closest('dialog')?.close();
+      return;
+    }
+    const copyUserCode = event.target.closest('[data-copy-user-code]');
+    if (copyUserCode) {
+      const item = state.adminUsers.find(row => String(row.id) === String(copyUserCode.dataset.copyUserCode));
+      if (!item) return;
+      try {
+        await navigator.clipboard.writeText(item.internal_code);
+        toast('Código único copiado.');
+      } catch {
+        toast('No se pudo copiar automáticamente.', 'error');
+      }
+      return;
+    }
+    const provisionUser = event.target.closest('[data-admin-provision-user]');
+    if (provisionUser) {
+      openDialog('motherProvisionDialog', { user_id: provisionUser.dataset.adminProvisionUser });
+      return;
+    }
+    const statusAction = event.target.closest('[data-admin-user-status]');
+    if (statusAction) {
+      const status = statusAction.dataset.adminUserStatus;
+      const label = status === 'blocked' ? 'bloquear' : 'activar';
+      if (!confirm(`¿Confirma ${label} este usuario?`)) return;
+      try {
+        await api('/api/admin/users.php', { method: 'PUT', body: { id: statusAction.dataset.id, status } });
+        toast('Estado del usuario actualizado.');
+        await loadAdminUsers();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
       return;
     }
     const apiaryEdit = event.target.closest('[data-edit-apiary]');
